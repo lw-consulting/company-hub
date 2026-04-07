@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, isNull } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { communityForumGroups, communityForums, communityPosts, communityComments, communityLikes, communityBookmarks, communityFollows, communityProfiles } from '../../db/schema/community.js';
+import { communityForumGroups, communityForums, communityPosts, communityComments, communityReactions, communityPolls, communityPollOptions, communityPollVotes, communityBookmarks, communityFollows, communityProfiles } from '../../db/schema/community.js';
 import { users } from '../../db/schema/users.js';
 import { NotFoundError } from '../../lib/errors.js';
 
@@ -101,10 +101,25 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
   return { data: postsWithMeta, total: totalResult?.count || 0, page, pageSize };
 }
 
-export async function createPost(userId: string, orgId: string, data: { content: string; forumId?: string; mediaUrls?: string[] }) {
+export async function createPost(userId: string, orgId: string, data: {
+  content: string; forumId?: string; mediaUrls?: string[]; postType?: string; background?: string; tags?: string[];
+  poll?: { question: string; options: string[]; multipleChoice?: boolean };
+}) {
   const [post] = await db.insert(communityPosts).values({
-    orgId, authorId: userId, content: data.content, forumId: data.forumId || null, mediaUrls: data.mediaUrls || [],
+    orgId, authorId: userId, content: data.content, forumId: data.forumId || null,
+    mediaUrls: data.mediaUrls || [], postType: data.postType || 'post',
+    background: data.background || null, tags: data.tags || [],
   }).returning();
+
+  // Create poll if provided
+  if (data.poll && data.poll.question && data.poll.options?.length >= 2) {
+    const [poll] = await db.insert(communityPolls).values({
+      postId: post.id, question: data.poll.question, multipleChoice: data.poll.multipleChoice || false,
+    }).returning();
+    for (let i = 0; i < data.poll.options.length; i++) {
+      await db.insert(communityPollOptions).values({ pollId: poll.id, text: data.poll.options[i], sortOrder: i });
+    }
+  }
 
   // Update forum post count
   if (data.forumId) {
@@ -117,8 +132,9 @@ export async function createPost(userId: string, orgId: string, data: { content:
 export async function getPostById(postId: string, currentUserId?: string) {
   const [post] = await db.select({
     id: communityPosts.id, content: communityPosts.content, mediaUrls: communityPosts.mediaUrls,
-    isPinned: communityPosts.isPinned, isHighlight: communityPosts.isHighlight, createdAt: communityPosts.createdAt,
-    forumId: communityPosts.forumId, authorId: communityPosts.authorId,
+    isPinned: communityPosts.isPinned, postType: communityPosts.postType,
+    background: communityPosts.background, tags: communityPosts.tags,
+    createdAt: communityPosts.createdAt, forumId: communityPosts.forumId, authorId: communityPosts.authorId,
     authorFirstName: users.firstName, authorLastName: users.lastName,
     authorAvatarUrl: users.avatarUrl, authorPosition: users.position, authorDepartment: users.department,
   }).from(communityPosts).innerJoin(users, eq(communityPosts.authorId, users.id))
@@ -126,22 +142,51 @@ export async function getPostById(postId: string, currentUserId?: string) {
 
   if (!post) throw new NotFoundError('Beitrag nicht gefunden');
 
-  const [likeCount] = await db.select({ count: sql<number>`count(*)::int` })
-    .from(communityLikes).where(eq(communityLikes.postId, postId));
+  // Get reaction counts by type
+  const reactions = await db.select({
+    reactionType: communityReactions.reactionType,
+    count: sql<number>`count(*)::int`,
+  }).from(communityReactions).where(eq(communityReactions.postId, postId))
+    .groupBy(communityReactions.reactionType);
+
+  const reactionCounts: Record<string, number> = {};
+  let totalReactions = 0;
+  for (const r of reactions) { reactionCounts[r.reactionType] = r.count; totalReactions += r.count; }
+
   const [commentCount] = await db.select({ count: sql<number>`count(*)::int` })
     .from(communityComments).where(eq(communityComments.postId, postId));
 
-  let isLiked = false, isBookmarked = false;
+  // Get poll if exists
+  const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.postId, postId)).limit(1);
+  let pollData = null;
+  if (poll) {
+    const options = await db.select().from(communityPollOptions).where(eq(communityPollOptions.pollId, poll.id)).orderBy(communityPollOptions.sortOrder);
+    const optionsWithVotes = await Promise.all(options.map(async (opt) => {
+      const [voteCount] = await db.select({ count: sql<number>`count(*)::int` }).from(communityPollVotes).where(eq(communityPollVotes.optionId, opt.id));
+      let userVoted = false;
+      if (currentUserId) {
+        const [v] = await db.select({ id: communityPollVotes.id }).from(communityPollVotes)
+          .where(and(eq(communityPollVotes.optionId, opt.id), eq(communityPollVotes.userId, currentUserId))).limit(1);
+        userVoted = !!v;
+      }
+      return { ...opt, voteCount: voteCount?.count || 0, userVoted };
+    }));
+    const totalVotes = optionsWithVotes.reduce((s, o) => s + o.voteCount, 0);
+    pollData = { ...poll, options: optionsWithVotes, totalVotes };
+  }
+
+  let myReaction: string | null = null;
+  let isBookmarked = false;
   if (currentUserId) {
-    const [like] = await db.select({ id: communityLikes.id }).from(communityLikes)
-      .where(and(eq(communityLikes.postId, postId), eq(communityLikes.userId, currentUserId))).limit(1);
-    isLiked = !!like;
+    const [r] = await db.select({ reactionType: communityReactions.reactionType }).from(communityReactions)
+      .where(and(eq(communityReactions.postId, postId), eq(communityReactions.userId, currentUserId))).limit(1);
+    myReaction = r?.reactionType || null;
     const [bm] = await db.select({ id: communityBookmarks.id }).from(communityBookmarks)
       .where(and(eq(communityBookmarks.postId, postId), eq(communityBookmarks.userId, currentUserId))).limit(1);
     isBookmarked = !!bm;
   }
 
-  return { ...post, likeCount: likeCount?.count || 0, commentCount: commentCount?.count || 0, isLiked, isBookmarked };
+  return { ...post, reactionCounts, totalReactions, commentCount: commentCount?.count || 0, myReaction, isBookmarked, poll: pollData };
 }
 
 export async function deletePost(postId: string, userId: string) {
@@ -189,15 +234,69 @@ export async function deleteComment(commentId: string, userId: string) {
 
 // ============== LIKES & BOOKMARKS ==============
 
-export async function toggleLike(userId: string, postId: string) {
-  const [existing] = await db.select({ id: communityLikes.id }).from(communityLikes)
-    .where(and(eq(communityLikes.userId, userId), eq(communityLikes.postId, postId))).limit(1);
+export async function toggleReaction(userId: string, postId: string, reactionType: string) {
+  // Valid types: like, fire, rocket, heart, shocked, laugh, dislike
+  const validTypes = ['like', 'fire', 'rocket', 'heart', 'shocked', 'laugh', 'dislike'];
+  if (!validTypes.includes(reactionType)) reactionType = 'like';
+
+  const [existing] = await db.select({ id: communityReactions.id, reactionType: communityReactions.reactionType })
+    .from(communityReactions)
+    .where(and(eq(communityReactions.userId, userId), eq(communityReactions.postId, postId))).limit(1);
+
   if (existing) {
-    await db.delete(communityLikes).where(eq(communityLikes.id, existing.id));
-    return { liked: false };
+    if (existing.reactionType === reactionType) {
+      // Same reaction -> remove
+      await db.delete(communityReactions).where(eq(communityReactions.id, existing.id));
+      return { reaction: null };
+    } else {
+      // Different reaction -> update
+      await db.update(communityReactions).set({ reactionType }).where(eq(communityReactions.id, existing.id));
+      return { reaction: reactionType };
+    }
   } else {
-    await db.insert(communityLikes).values({ userId, postId });
-    return { liked: true };
+    await db.insert(communityReactions).values({ userId, postId, reactionType });
+    return { reaction: reactionType };
+  }
+}
+
+// Keep backward compat
+export async function toggleLike(userId: string, postId: string) {
+  return toggleReaction(userId, postId, 'like');
+}
+
+// ============== POLLS ==============
+
+export async function votePoll(userId: string, optionId: string) {
+  // Check if already voted on this option
+  const [existing] = await db.select({ id: communityPollVotes.id }).from(communityPollVotes)
+    .where(and(eq(communityPollVotes.optionId, optionId), eq(communityPollVotes.userId, userId))).limit(1);
+
+  if (existing) {
+    // Remove vote
+    await db.delete(communityPollVotes).where(eq(communityPollVotes.id, existing.id));
+    return { voted: false };
+  } else {
+    // Get poll to check if multiple choice
+    const [option] = await db.select({ pollId: communityPollOptions.pollId }).from(communityPollOptions)
+      .where(eq(communityPollOptions.id, optionId)).limit(1);
+    if (!option) throw new NotFoundError('Option nicht gefunden');
+
+    const [poll] = await db.select({ multipleChoice: communityPolls.multipleChoice }).from(communityPolls)
+      .where(eq(communityPolls.id, option.pollId)).limit(1);
+
+    // If single choice, remove previous votes for this poll
+    if (!poll?.multipleChoice) {
+      const allOptions = await db.select({ id: communityPollOptions.id }).from(communityPollOptions)
+        .where(eq(communityPollOptions.pollId, option.pollId));
+      for (const opt of allOptions) {
+        await db.delete(communityPollVotes).where(
+          and(eq(communityPollVotes.optionId, opt.id), eq(communityPollVotes.userId, userId))
+        );
+      }
+    }
+
+    await db.insert(communityPollVotes).values({ optionId, userId });
+    return { voted: true };
   }
 }
 

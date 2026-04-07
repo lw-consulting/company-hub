@@ -207,10 +207,11 @@ async function initDatabase() {
       forum_id UUID REFERENCES community_forums(id) ON DELETE SET NULL,
       author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
+      post_type VARCHAR(20) NOT NULL DEFAULT 'post',
+      background VARCHAR(50),
       media_urls JSONB DEFAULT '[]',
       is_pinned BOOLEAN NOT NULL DEFAULT false,
-      is_highlight BOOLEAN NOT NULL DEFAULT false,
-      saved_count INTEGER NOT NULL DEFAULT 0,
+      tags JSONB DEFAULT '[]',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -228,12 +229,38 @@ async function initDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    -- Community Likes
-    CREATE TABLE IF NOT EXISTS community_likes (
+    -- Community Reactions (replaces community_likes)
+    CREATE TABLE IF NOT EXISTS community_reactions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       post_id UUID REFERENCES community_posts(id) ON DELETE CASCADE,
       comment_id UUID REFERENCES community_comments(id) ON DELETE CASCADE,
+      reaction_type VARCHAR(20) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_reactions_post ON community_reactions(post_id);
+
+    -- Community Polls
+    CREATE TABLE IF NOT EXISTS community_polls (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      multiple_choice BOOLEAN NOT NULL DEFAULT false,
+      ends_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS community_poll_options (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      poll_id UUID NOT NULL REFERENCES community_polls(id) ON DELETE CASCADE,
+      text VARCHAR(300) NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS community_poll_votes (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      option_id UUID NOT NULL REFERENCES community_poll_options(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 

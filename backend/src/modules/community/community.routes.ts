@@ -65,10 +65,24 @@ export async function communityRoutes(fastify: FastifyInstance) {
     return reply.send({ data: post, statusCode: 200 });
   });
 
-  // ============== LIKES & BOOKMARKS ==============
+  // ============== REACTIONS & BOOKMARKS ==============
 
+  fastify.post('/api/community/posts/:id/react', { preHandler: [modGuard] }, async (req, reply) => {
+    const { type } = (req.body as any) || {};
+    const result = await communityService.toggleReaction(req.user.sub, (req.params as any).id, type || 'like');
+    return reply.send({ data: result, statusCode: 200 });
+  });
+
+  // Keep old like endpoint for backward compat
   fastify.post('/api/community/posts/:id/like', { preHandler: [modGuard] }, async (req, reply) => {
     const result = await communityService.toggleLike(req.user.sub, (req.params as any).id);
+    return reply.send({ data: result, statusCode: 200 });
+  });
+
+  // ============== POLLS ==============
+
+  fastify.post('/api/community/polls/:optionId/vote', { preHandler: [modGuard] }, async (req, reply) => {
+    const result = await communityService.votePoll(req.user.sub, (req.params as any).optionId);
     return reply.send({ data: result, statusCode: 200 });
   });
 
