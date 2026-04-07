@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost } from '../../../lib/api';
+import { apiGet, apiPost, apiPatch } from '../../../lib/api';
 import { useAuthStore } from '../../../stores/auth.store';
 import { X, Image, Video, File, BarChart3, Smile, Trash2 } from 'lucide-react';
 import { GRADIENTS, EMOJI_BACKGROUNDS, getBackgroundStyle, getBackgroundEmoji } from './PostBackgrounds';
@@ -8,18 +8,28 @@ import { GRADIENTS, EMOJI_BACKGROUNDS, getBackgroundStyle, getBackgroundEmoji } 
 interface Forum { id: string; name: string; }
 interface ForumGroup { id: string; name: string; forums: Forum[]; }
 
+interface EditingPost {
+  id: string;
+  content: string;
+  background: string | null;
+  postType: string;
+  forumId: string | null;
+}
+
 interface CreatePostModalProps {
   onClose: () => void;
   defaultForumId?: string | null;
+  editingPost?: EditingPost | null;
 }
 
-export default function CreatePostModal({ onClose, defaultForumId }: CreatePostModalProps) {
+export default function CreatePostModal({ onClose, defaultForumId, editingPost }: CreatePostModalProps) {
+  const isEdit = !!editingPost;
   const qc = useQueryClient();
   const { user } = useAuthStore();
-  const [content, setContent] = useState('');
-  const [postType, setPostType] = useState<'post' | 'discussion'>('post');
-  const [forumId, setForumId] = useState(defaultForumId || '');
-  const [background, setBackground] = useState<string | null>(null);
+  const [content, setContent] = useState(editingPost?.content || '');
+  const [postType, setPostType] = useState<'post' | 'discussion'>((editingPost?.postType as any) || 'post');
+  const [forumId, setForumId] = useState(editingPost?.forumId || defaultForumId || '');
+  const [background, setBackground] = useState<string | null>(editingPost?.background || null);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [showPollForm, setShowPollForm] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -37,15 +47,26 @@ export default function CreatePostModal({ onClose, defaultForumId }: CreatePostM
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-feed'] }); onClose(); },
   });
 
+  const updateMut = useMutation({
+    mutationFn: (data: any) => apiPatch(`/community/posts/${editingPost?.id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-feed'] }); onClose(); },
+  });
+
+  const mutation = isEdit ? updateMut : createMut;
+
   const handleSubmit = () => {
     if (!content.trim()) return;
-    const data: any = {
-      content, postType, forumId: forumId || undefined, background,
-    };
-    if (showPollForm && pollQuestion && pollOptions.filter(o => o.trim()).length >= 2) {
-      data.poll = { question: pollQuestion, options: pollOptions.filter(o => o.trim()) };
+    if (isEdit) {
+      updateMut.mutate({ content, background });
+    } else {
+      const data: any = {
+        content, postType, forumId: forumId || undefined, background,
+      };
+      if (showPollForm && pollQuestion && pollOptions.filter(o => o.trim()).length >= 2) {
+        data.poll = { question: pollQuestion, options: pollOptions.filter(o => o.trim()) };
+      }
+      createMut.mutate(data);
     }
-    createMut.mutate(data);
   };
 
   const bgStyle = getBackgroundStyle(background);
@@ -180,10 +201,10 @@ export default function CreatePostModal({ onClose, defaultForumId }: CreatePostM
             </button>
           </div>
 
-          <button onClick={handleSubmit} disabled={!content.trim() || createMut.isPending}
+          <button onClick={handleSubmit} disabled={!content.trim() || mutation.isPending}
             className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all disabled:opacity-40"
             style={{ backgroundColor: '#22c55e' }}>
-            {createMut.isPending ? 'Wird gepostet...' : 'Posten ➤'}
+            {mutation.isPending ? (isEdit ? 'Speichern...' : 'Wird gepostet...') : (isEdit ? 'Änderungen speichern ✓' : 'Posten ➤')}
           </button>
         </div>
       </div>

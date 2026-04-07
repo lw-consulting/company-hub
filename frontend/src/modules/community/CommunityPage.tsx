@@ -9,7 +9,7 @@ import { getBackgroundStyle, getBackgroundEmoji } from './components/PostBackgro
 import {
   Home, List, User, Search, Heart, MessageCircle, Bookmark, Send, Pin,
   Flame, Trash2, Image, Video, File, ChevronDown, ChevronUp, Plus, X, Edit,
-  Mail, Briefcase, Building2, Camera,
+  Mail, Briefcase, Building2, Camera, MoreHorizontal,
 } from 'lucide-react';
 import AvatarCropModal from '../../components/AvatarCropModal';
 
@@ -162,6 +162,11 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
   const { user } = useAuthStore();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingPost, setEditingPost] = useState(false);
+
+  const isAuthor = user?.id === post.authorId;
 
   const reactMut = useMutation({
     mutationFn: (type: string) => apiPost(`/community/posts/${post.id}/react`, { type }),
@@ -170,6 +175,10 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
   const bookmarkMut = useMutation({
     mutationFn: () => apiPost(`/community/posts/${post.id}/bookmark`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['community-feed'] }),
+  });
+  const deleteMut = useMutation({
+    mutationFn: () => apiDelete(`/community/posts/${post.id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-feed'] }); setConfirmDelete(false); },
   });
 
   const { data: comments } = useQuery({
@@ -206,7 +215,7 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
               </div>
             </div>
           </div>
-          {/* Tags */}
+          {/* Tags + Menu */}
           <div className="flex items-center gap-1.5">
             {(post.tags as string[])?.includes('highlight') && (
               <span className="flex items-center gap-1 text-xs font-semibold text-orange-500">🔥 Highlight</span>
@@ -219,6 +228,29 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
             )}
             {post.postType === 'announcement' && (
               <span className="badge-accent text-[10px]">📢 Ankündigung</span>
+            )}
+            {isAuthor && (
+              <div className="relative">
+                <button onClick={() => setShowMenu(!showMenu)}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 transition-colors">
+                  <MoreHorizontal size={16} />
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-lg shadow-elevated py-1 min-w-[140px]">
+                      <button onClick={() => { setShowMenu(false); setEditingPost(true); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700">
+                        <Edit size={14} /> Bearbeiten
+                      </button>
+                      <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                        <Trash2 size={14} /> Löschen
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -291,6 +323,30 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
                 onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) commentMut.mutate(commentText); }} />
               <button onClick={() => commentText.trim() && commentMut.mutate(commentText)} disabled={!commentText.trim()} className="btn-primary px-3">
                 <Send size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingPost && (
+        <CreatePostModal
+          onClose={() => setEditingPost(false)}
+          editingPost={{ id: post.id, content: post.content, background: post.background, postType: post.postType, forumId: post.forumId }}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 max-w-sm w-full space-y-4">
+            <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">Beitrag löschen?</h3>
+            <p className="text-sm text-neutral-500">Dieser Beitrag wird unwiderruflich gelöscht.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="btn-secondary">Abbrechen</button>
+              <button onClick={() => deleteMut.mutate()} className="btn-danger" disabled={deleteMut.isPending}>
+                {deleteMut.isPending ? 'Löschen...' : 'Löschen'}
               </button>
             </div>
           </div>

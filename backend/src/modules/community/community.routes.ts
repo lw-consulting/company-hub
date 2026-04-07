@@ -50,6 +50,11 @@ export async function communityRoutes(fastify: FastifyInstance) {
     return reply.send({ data: post, statusCode: 200 });
   });
 
+  fastify.patch('/api/community/posts/:id', { preHandler: [modGuard] }, async (req, reply) => {
+    const updated = await communityService.updatePost((req.params as any).id, req.user.sub, req.body as any);
+    return reply.send({ data: updated, statusCode: 200 });
+  });
+
   fastify.delete('/api/community/posts/:id', { preHandler: [modGuard] }, async (req, reply) => {
     await communityService.deletePost((req.params as any).id, req.user.sub);
     return reply.send({ data: { message: 'Gelöscht' }, statusCode: 200 });

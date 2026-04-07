@@ -208,6 +208,21 @@ export async function deletePost(postId: string, userId: string) {
   if (!deleted) throw new NotFoundError('Beitrag nicht gefunden');
 }
 
+export async function updatePost(postId: string, userId: string, data: { content?: string; background?: string | null }) {
+  const updateFields: Record<string, any> = {};
+  if (data.content !== undefined) updateFields.content = data.content;
+  if (data.background !== undefined) updateFields.background = data.background;
+
+  if (Object.keys(updateFields).length === 0) throw new NotFoundError('Keine Änderungen');
+
+  const [updated] = await db.update(communityPosts)
+    .set(updateFields)
+    .where(and(eq(communityPosts.id, postId), eq(communityPosts.authorId, userId)))
+    .returning({ id: communityPosts.id });
+  if (!updated) throw new NotFoundError('Beitrag nicht gefunden');
+  return updated;
+}
+
 export async function togglePin(postId: string) {
   const [post] = await db.select({ isPinned: communityPosts.isPinned }).from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
   if (!post) throw new NotFoundError('Beitrag nicht gefunden');
