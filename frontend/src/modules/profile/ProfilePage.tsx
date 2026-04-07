@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { api, apiPost, apiPatch } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
 import { User, Lock, Mail, Phone, Building2, Save, Check, AlertCircle, Eye, EyeOff, Camera, Briefcase } from 'lucide-react';
+import AvatarCropModal from '../../components/AvatarCropModal';
 
 export default function ProfilePage() {
   const { user, fetchMe } = useAuthStore();
@@ -40,11 +41,12 @@ export default function ProfilePage() {
 function AvatarUpload() {
   const { user, fetchMe } = useAuthStore();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const uploadMut = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (blob: Blob) => {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', blob, 'avatar.jpg');
       return api<{ avatarUrl: string }>('/files/avatar', {
         method: 'POST',
         body: formData,
@@ -55,30 +57,42 @@ function AvatarUpload() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) uploadMut.mutate(file);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCrop = (blob: Blob) => {
+    setCropSrc(null);
+    uploadMut.mutate(blob);
   };
 
   return (
-    <div className="relative group cursor-pointer" onClick={() => fileRef.current?.click()}>
-      <div className="w-20 h-20 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-        {user?.avatarUrl ? (
-          <img src={user.avatarUrl} className="w-20 h-20 rounded-full object-cover" />
-        ) : (
-          <span className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>
-            {user?.firstName?.[0]}{user?.lastName?.[0]}
-          </span>
-        )}
-      </div>
-      <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <Camera size={20} className="text-white" />
-      </div>
-      {uploadMut.isPending && (
-        <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    <>
+      <div className="relative group cursor-pointer" onClick={() => fileRef.current?.click()}>
+        <div className="w-20 h-20 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} className="w-20 h-20 rounded-full object-cover" />
+          ) : (
+            <span className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>
+              {user?.firstName?.[0]}{user?.lastName?.[0]}
+            </span>
+          )}
         </div>
-      )}
-      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
-    </div>
+        <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Camera size={20} className="text-white" />
+        </div>
+        {uploadMut.isPending && (
+          <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
+      </div>
+      {cropSrc && <AvatarCropModal imageSrc={cropSrc} onCrop={handleCrop} onClose={() => setCropSrc(null)} />}
+    </>
   );
 }
 

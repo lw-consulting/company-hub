@@ -11,6 +11,7 @@ import {
   Flame, Trash2, Image, Video, File, ChevronDown, ChevronUp, Plus, X, Edit,
   Mail, Briefcase, Building2, Camera,
 } from 'lucide-react';
+import AvatarCropModal from '../../components/AvatarCropModal';
 
 // Types
 interface Post {
@@ -425,15 +426,30 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
   const [bio, setBio] = useState('');
   const [headline, setHeadline] = useState('');
   const avatarRef = useRef<HTMLInputElement>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const avatarUploadMut = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (blob: Blob) => {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', blob, 'avatar.jpg');
       return api<{ avatarUrl: string }>('/files/avatar', { method: 'POST', body: formData });
     },
     onSuccess: () => { fetchMe(); qc.invalidateQueries({ queryKey: ['community-profile'] }); },
   });
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleAvatarCrop = (blob: Blob) => {
+    setCropSrc(null);
+    avatarUploadMut.mutate(blob);
+  };
 
   const { data: profile } = useQuery({
     queryKey: ['community-profile', userId],
@@ -482,7 +498,7 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
                 </div>
               )}
               <input ref={avatarRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) avatarUploadMut.mutate(f); }} />
+                onChange={handleAvatarFile />
             </div>
           ) : (
             <Avatar url={profile.avatarUrl} firstName={profile.firstName} lastName={profile.lastName} size="xl" />
@@ -589,6 +605,7 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
           </div>
         </div>
       </div>
+      {cropSrc && <AvatarCropModal imageSrc={cropSrc} onCrop={handleAvatarCrop} onClose={() => setCropSrc(null)} />}
     </div>
   );
 }
