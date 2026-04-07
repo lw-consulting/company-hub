@@ -2,6 +2,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# API URL as build argument (Vite embeds env vars at build time)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Copy package files
 COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/

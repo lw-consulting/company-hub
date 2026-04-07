@@ -1,4 +1,5 @@
-const API_BASE = '/api';
+// Use environment variable for API URL, fallback to relative /api for dev proxy
+const API_BASE = (import.meta as any).env?.VITE_API_URL || '/api';
 
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
