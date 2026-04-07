@@ -94,7 +94,7 @@ export default function CalendarPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
             <button onClick={prevMonth} className="btn-ghost p-2"><ChevronLeft size={18} /></button>
-            <h2 className="text-lg font-semibold text-slate-800 min-w-[180px] text-center">
+            <h2 className="text-lg font-semibold text-neutral-800 min-w-[180px] text-center">
               {MONTH_NAMES[month]} {year}
             </h2>
             <button onClick={nextMonth} className="btn-ghost p-2"><ChevronRight size={18} /></button>
@@ -108,7 +108,7 @@ export default function CalendarPage() {
             <button
               onClick={() => setView('personal')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                view === 'personal' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+                view === 'personal' ? 'bg-white shadow-sm text-neutral-800' : 'text-neutral-500'
               }`}
             >
               <User size={14} /> Persönlich
@@ -116,7 +116,7 @@ export default function CalendarPage() {
             <button
               onClick={() => setView('team')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                view === 'team' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+                view === 'team' ? 'bg-white shadow-sm text-neutral-800' : 'text-neutral-500'
               }`}
             >
               <Users size={14} /> Team
@@ -136,7 +136,7 @@ export default function CalendarPage() {
         {/* Weekday headers */}
         <div className="grid grid-cols-7 bg-surface-secondary border-b border-border">
           {WEEKDAYS.map((d) => (
-            <div key={d} className="text-center text-xs font-semibold text-slate-500 uppercase py-3">
+            <div key={d} className="text-center text-xs font-semibold text-neutral-500 uppercase py-3">
               {d}
             </div>
           ))}
@@ -161,8 +161,8 @@ export default function CalendarPage() {
                     isToday
                       ? 'bg-primary text-white'
                       : isCurrentMonth
-                        ? 'text-slate-700'
-                        : 'text-slate-300'
+                        ? 'text-neutral-700'
+                        : 'text-neutral-300'
                   }`}
                 >
                   {date.getDate()}
@@ -180,7 +180,7 @@ export default function CalendarPage() {
                     </div>
                   ))}
                   {dayEvents.length > 3 && (
-                    <div className="text-[10px] text-slate-400 px-1.5">
+                    <div className="text-[10px] text-neutral-400 px-1.5">
                       +{dayEvents.length - 3} mehr
                     </div>
                   )}
@@ -233,8 +233,8 @@ function CreateEventModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-lg">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Neuer Termin</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <h3 className="text-lg font-semibold text-neutral-800">Neuer Termin</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600"><X size={20} /></button>
         </div>
 
         {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
@@ -245,7 +245,7 @@ function CreateEventModal({ onClose }: { onClose: () => void }) {
             <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-slate-600">
+          <label className="flex items-center gap-2 text-sm text-neutral-600">
             <input type="checkbox" checked={form.allDay} onChange={(e) => setForm({ ...form, allDay: e.target.checked })} />
             Ganztägig
           </label>

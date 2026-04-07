@@ -35,11 +35,11 @@ export default function AiAssistantsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-slate-800">Meine KI-Assistenten</h2>
+      <h2 className="text-lg font-semibold text-neutral-800">Meine KI-Assistenten</h2>
 
       {!assistants?.length ? (
-        <div className="card p-12 text-center text-slate-400">
-          <Bot size={40} className="mx-auto mb-3 text-slate-300" />
+        <div className="card p-12 text-center text-neutral-400">
+          <Bot size={40} className="mx-auto mb-3 text-neutral-300" />
           <p>Keine KI-Assistenten zugewiesen.</p>
           {isAdmin && <p className="text-sm mt-1">Erstellen Sie Assistenten unter Administration.</p>}
         </div>
@@ -52,19 +52,19 @@ export default function AiAssistantsPage() {
               className="card p-5 text-left hover:shadow-elevated transition-shadow"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
                   {a.avatarUrl ? (
                     <img src={a.avatarUrl} className="w-10 h-10 rounded-xl object-cover" />
                   ) : (
-                    <Bot size={20} className="text-indigo-600" />
+                    <Bot size={20} className="text-accent" />
                   )}
                 </div>
                 <div>
-                  <div className="font-medium text-slate-800">{a.name}</div>
-                  <div className="text-xs text-slate-400">{a.model}</div>
+                  <div className="font-medium text-neutral-800">{a.name}</div>
+                  <div className="text-xs text-neutral-400">{a.model}</div>
                 </div>
               </div>
-              {a.description && <p className="text-sm text-slate-500 line-clamp-2">{a.description}</p>}
+              {a.description && <p className="text-sm text-neutral-500 line-clamp-2">{a.description}</p>}
             </button>
           ))}
         </div>
@@ -95,7 +95,7 @@ function SessionList({ assistant, onBack, onOpenSession }: {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="btn-ghost p-2"><ArrowLeft size={18} /></button>
-        <h2 className="text-lg font-semibold text-slate-800">{assistant.name}</h2>
+        <h2 className="text-lg font-semibold text-neutral-800">{assistant.name}</h2>
       </div>
 
       <button onClick={() => createMutation.mutate()} className="btn-primary">
@@ -104,14 +104,14 @@ function SessionList({ assistant, onBack, onOpenSession }: {
 
       <div className="space-y-2">
         {!sessions?.length ? (
-          <div className="card p-8 text-center text-slate-400">Noch keine Chats. Starten Sie einen neuen!</div>
+          <div className="card p-8 text-center text-neutral-400">Noch keine Chats. Starten Sie einen neuen!</div>
         ) : sessions.map((s) => (
           <button key={s.id} onClick={() => onOpenSession(s.id)}
-            className="card p-4 w-full text-left hover:bg-slate-50 flex items-center gap-3">
-            <MessageSquare size={18} className="text-slate-400" />
+            className="card p-4 w-full text-left hover:bg-neutral-50 flex items-center gap-3">
+            <MessageSquare size={18} className="text-neutral-400" />
             <div className="flex-1">
-              <div className="font-medium text-slate-700">{s.title || 'Chat'}</div>
-              <div className="text-xs text-slate-400">{new Date(s.updatedAt).toLocaleString('de-AT')}</div>
+              <div className="font-medium text-neutral-700">{s.title || 'Chat'}</div>
+              <div className="text-xs text-neutral-400">{new Date(s.updatedAt).toLocaleString('de-AT')}</div>
             </div>
           </button>
         ))}
@@ -147,21 +147,21 @@ function ChatView({ assistant, sessionId, onBack }: {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+      <div className="flex items-center gap-3 pb-4 border-b border-neutral-200">
         <button onClick={onBack} className="btn-ghost p-2"><ArrowLeft size={18} /></button>
-        <Bot size={20} className="text-indigo-600" />
-        <span className="font-semibold text-slate-800">{assistant.name}</span>
+        <Bot size={20} className="text-accent" />
+        <span className="font-semibold text-neutral-800">{assistant.name}</span>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
         {assistant.openingMessage && (!messages || messages.length === 0) && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <Bot size={16} className="text-indigo-600" />
+            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+              <Bot size={16} className="text-accent" />
             </div>
-            <div className="bg-slate-100 rounded-xl rounded-tl-none px-4 py-2.5 max-w-[70%]">
-              <p className="text-sm text-slate-700">{assistant.openingMessage}</p>
+            <div className="bg-neutral-100 rounded-xl rounded-tl-none px-4 py-2.5 max-w-[70%]">
+              <p className="text-sm text-neutral-700">{assistant.openingMessage}</p>
             </div>
           </div>
         )}
@@ -169,15 +169,15 @@ function ChatView({ assistant, sessionId, onBack }: {
         {messages?.map((msg) => (
           <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
             {msg.role !== 'user' && (
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                <Bot size={16} className="text-indigo-600" />
+              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                <Bot size={16} className="text-accent" />
               </div>
             )}
             <div className={`rounded-xl px-4 py-2.5 max-w-[70%] ${
               msg.role === 'user'
-                ? 'bg-indigo-600 text-white rounded-tr-none'
-                : 'bg-slate-100 text-slate-700 rounded-tl-none'
-            }`}>
+                ? 'text-white rounded-tr-none'
+                : 'bg-neutral-100 text-neutral-700 rounded-tl-none'
+            }`} style={msg.role === 'user' ? { backgroundColor: 'var(--color-accent)' } : undefined}>
               <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
             </div>
           </div>
@@ -185,14 +185,14 @@ function ChatView({ assistant, sessionId, onBack }: {
 
         {sendMutation.isPending && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <Bot size={16} className="text-indigo-600" />
+            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+              <Bot size={16} className="text-accent" />
             </div>
-            <div className="bg-slate-100 rounded-xl rounded-tl-none px-4 py-3">
+            <div className="bg-neutral-100 rounded-xl rounded-tl-none px-4 py-3">
               <div className="flex gap-1">
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                <div className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce [animation-delay:0.4s]" />
               </div>
             </div>
           </div>
@@ -200,7 +200,7 @@ function ChatView({ assistant, sessionId, onBack }: {
       </div>
 
       {/* Input */}
-      <div className="border-t border-slate-200 pt-4">
+      <div className="border-t border-neutral-200 pt-4">
         <div className="flex gap-2">
           <input
             className="input flex-1"

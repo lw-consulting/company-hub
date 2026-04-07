@@ -94,16 +94,16 @@ export default function TimeTrackingPage() {
       <div className="card p-6">
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-lg font-semibold text-slate-800">Zeiterfassung</h2>
+            <h2 className="text-lg font-semibold text-neutral-800">Zeiterfassung</h2>
             {isClockedIn ? (
               <div>
-                <p className="text-slate-500 mt-1">
+                <p className="text-neutral-500 mt-1">
                   Eingestempelt seit <span className="font-medium text-primary">{formatTime(activeEntry.clockIn)}</span>
                 </p>
                 <LiveTimer clockIn={activeEntry.clockIn} />
               </div>
             ) : (
-              <p className="text-slate-500 mt-1">Noch nicht eingestempelt</p>
+              <p className="text-neutral-500 mt-1">Noch nicht eingestempelt</p>
             )}
           </div>
 
@@ -134,30 +134,30 @@ export default function TimeTrackingPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="card p-4">
-          <div className="text-sm text-slate-500">Stunden diese Woche</div>
-          <div className="text-2xl font-bold text-slate-800 mt-1">
+          <div className="text-sm text-neutral-500">Stunden diese Woche</div>
+          <div className="text-2xl font-bold text-neutral-800 mt-1">
             {summary ? formatDuration(summary.totalMinutes) : '--:--'}
           </div>
-          <div className="text-xs text-slate-400">Soll: {summary?.weeklyTargetHours || 40}h</div>
+          <div className="text-xs text-neutral-400">Soll: {summary?.weeklyTargetHours || 40}h</div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-slate-500">Saldo</div>
+          <div className="text-sm text-neutral-500">Saldo</div>
           <div className={`text-2xl font-bold mt-1 ${balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {balance >= 0 ? '+' : ''}{balance.toFixed(1)}h
           </div>
-          <div className="text-xs text-slate-400">Mehr-/Minderstunden</div>
+          <div className="text-xs text-neutral-400">Mehr-/Minderstunden</div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-slate-500">Arbeitstage</div>
-          <div className="text-2xl font-bold text-slate-800 mt-1">{summary?.daysWorked || 0}</div>
-          <div className="text-xs text-slate-400">diese Woche</div>
+          <div className="text-sm text-neutral-500">Arbeitstage</div>
+          <div className="text-2xl font-bold text-neutral-800 mt-1">{summary?.daysWorked || 0}</div>
+          <div className="text-xs text-neutral-400">diese Woche</div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-slate-500">Pausen</div>
-          <div className="text-2xl font-bold text-slate-800 mt-1">
+          <div className="text-sm text-neutral-500">Pausen</div>
+          <div className="text-2xl font-bold text-neutral-800 mt-1">
             {summary ? `${summary.totalBreakMinutes} min` : '--'}
           </div>
-          <div className="text-xs text-slate-400">gesamt</div>
+          <div className="text-xs text-neutral-400">gesamt</div>
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export default function TimeTrackingPage() {
           <button onClick={() => setWeekOffset(weekOffset - 1)} className="btn-ghost p-2">
             <ChevronLeft size={18} />
           </button>
-          <span className="font-medium text-slate-700">{week.label}</span>
+          <span className="font-medium text-neutral-700">{week.label}</span>
           <div className="flex items-center gap-2">
             {weekOffset !== 0 && (
               <button onClick={() => setWeekOffset(0)} className="text-xs text-primary font-medium hover:underline">
@@ -184,41 +184,41 @@ export default function TimeTrackingPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-surface-secondary">
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Datum</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Kommen</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Gehen</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Pause</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Netto</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase px-6 py-3">Notiz</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Datum</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Kommen</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Gehen</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Pause</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Netto</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Notiz</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light">
               {isLoading ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">Laden...</td></tr>
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">Laden...</td></tr>
               ) : !summary?.entries?.length ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">Keine Einträge in dieser Woche</td></tr>
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">Keine Einträge in dieser Woche</td></tr>
               ) : (
                 summary.entries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-surface-secondary/50">
-                    <td className="px-6 py-3 text-sm font-medium text-slate-700">
+                    <td className="px-6 py-3 text-sm font-medium text-neutral-700">
                       {new Date(entry.clockIn).toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                     </td>
-                    <td className="px-6 py-3 text-sm text-slate-600">{formatTime(entry.clockIn)}</td>
-                    <td className="px-6 py-3 text-sm text-slate-600">
+                    <td className="px-6 py-3 text-sm text-neutral-600">{formatTime(entry.clockIn)}</td>
+                    <td className="px-6 py-3 text-sm text-neutral-600">
                       {entry.clockOut ? formatTime(entry.clockOut) : (
                         <span className="badge-success">Aktiv</span>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-sm text-slate-600">
+                    <td className="px-6 py-3 text-sm text-neutral-600">
                       {entry.breakMinutes} min
                       {entry.autoBreakApplied && (
                         <span title="Automatische Pause"><Coffee size={14} className="inline ml-1 text-amber-500" /></span>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-sm font-medium text-slate-700">
+                    <td className="px-6 py-3 text-sm font-medium text-neutral-700">
                       {formatDuration(entry.netMinutes)}
                     </td>
-                    <td className="px-6 py-3 text-sm text-slate-400 max-w-[150px] truncate">
+                    <td className="px-6 py-3 text-sm text-neutral-400 max-w-[150px] truncate">
                       {entry.notes || '-'}
                     </td>
                   </tr>

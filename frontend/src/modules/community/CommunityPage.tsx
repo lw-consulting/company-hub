@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
+import { api, apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
 import ReactionPicker from './components/ReactionPicker';
 import PollView from './components/PollView';
@@ -9,6 +9,7 @@ import { getBackgroundStyle, getBackgroundEmoji } from './components/PostBackgro
 import {
   Home, List, User, Search, Heart, MessageCircle, Bookmark, Send, Pin,
   Flame, Trash2, Image, Video, File, ChevronDown, ChevronUp, Plus, X, Edit,
+  Mail, Briefcase, Building2, Camera,
 } from 'lucide-react';
 
 // Types
@@ -29,7 +30,7 @@ interface Comment {
 interface ForumGroup { id: string; name: string; icon: string | null; color: string; forums: Forum[]; }
 interface Forum { id: string; name: string; description: string | null; icon: string | null; isAnnouncement: boolean; postCount: number; lastPostAt: string | null; }
 interface Profile {
-  id: string; firstName: string; lastName: string; avatarUrl: string | null;
+  id: string; firstName: string; lastName: string; email: string; avatarUrl: string | null;
   department: string | null; position: string | null; bio: string | null; headline: string | null;
   postCount: number; followerCount: number; followingCount: number; isFollowing: boolean;
 }
@@ -46,9 +47,9 @@ export default function CommunityPage() {
   return (
     <div className="space-y-4">
       {/* Hero Banner */}
-      <div className="rounded-xl bg-gradient-to-r from-slate-900 to-slate-700 p-8 text-white">
+      <div className="rounded-xl bg-gradient-to-r from-neutral-900 to-neutral-700 p-8 text-white">
         <h2 className="text-2xl font-bold">Community</h2>
-        <p className="text-slate-300 mt-1">Austausch, Wissen & Vernetzung</p>
+        <p className="text-neutral-300 mt-1">Austausch, Wissen & Vernetzung</p>
       </div>
 
       {/* Tabs */}
@@ -60,7 +61,7 @@ export default function CommunityPage() {
         ].map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => { setTab(key as any); setActiveForumId(null); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === key ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-800' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              tab === key ? 'bg-neutral-800 text-white dark:bg-white dark:text-neutral-800' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700'
             }`}>
             <Icon size={16} /> {label}
           </button>
@@ -68,7 +69,7 @@ export default function CommunityPage() {
 
         <div className="ml-auto">
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -tranneutral-y-1/2 text-neutral-400" />
             <input className="input pl-9 w-56" placeholder="Community-Suche" />
           </div>
         </div>
@@ -145,9 +146,9 @@ function FeedView({ forumId, onViewProfile }: { forumId: string | null; onViewPr
 
       {/* Posts */}
       {isLoading ? (
-        <div className="text-center py-12 text-slate-400">Laden...</div>
+        <div className="text-center py-12 text-neutral-400">Laden...</div>
       ) : posts.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">Noch keine Beiträge</div>
+        <div className="text-center py-12 text-neutral-400">Noch keine Beiträge</div>
       ) : (
         posts.map(post => <PostCard key={post.id} post={post} onViewProfile={onViewProfile} />)
       )}
@@ -194,12 +195,12 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewProfile(post.authorId)}>
             <Avatar url={post.authorAvatarUrl} firstName={post.authorFirstName} lastName={post.authorLastName} />
             <div>
-              <div className="font-medium text-slate-800 dark:text-slate-100 hover:underline">
+              <div className="font-medium text-neutral-800 dark:text-neutral-100 hover:underline">
                 {post.authorFirstName} {post.authorLastName}
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-neutral-400">
                 {post.authorPosition && `${post.authorPosition} · `}
-                {post.forumName && <span className="text-indigo-500">{post.forumName} · </span>}
+                {post.forumName && <span className="text-accent">{post.forumName} · </span>}
                 {getTimeAgo(post.createdAt)}
               </div>
             </div>
@@ -254,12 +255,12 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
             onReact={(type) => reactMut.mutate(type)}
           />
           <button onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800">
             <MessageCircle size={16} /> Kommentieren
           </button>
           <button onClick={() => bookmarkMut.mutate()}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              post.isBookmarked ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+              post.isBookmarked ? 'text-accent bg-accent/10 dark:bg-accent/10' : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
             }`}>
             <Bookmark size={16} fill={post.isBookmarked ? 'currentColor' : 'none'} /> Speichern
           </button>
@@ -268,16 +269,16 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
 
       {/* Comments */}
       {showComments && (
-        <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4 space-y-3">
+        <div className="border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 p-4 space-y-3">
           {comments?.map(c => (
             <div key={c.id} className="flex gap-2.5">
               <Avatar url={c.authorAvatarUrl} firstName={c.authorFirstName} lastName={c.authorLastName} size="sm" />
-              <div className="flex-1 bg-white dark:bg-slate-800 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+              <div className="flex-1 bg-white dark:bg-neutral-800 rounded-lg p-2.5 border border-neutral-100 dark:border-neutral-700">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{c.authorFirstName} {c.authorLastName}</span>
-                  <span className="text-[11px] text-slate-400">{getTimeAgo(c.createdAt)}</span>
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{c.authorFirstName} {c.authorLastName}</span>
+                  <span className="text-[11px] text-neutral-400">{getTimeAgo(c.createdAt)}</span>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{c.content}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-0.5">{c.content}</p>
               </div>
             </div>
           ))}
@@ -308,32 +309,32 @@ function ForumsView({ onSelectForum }: { onSelectForum: (id: string) => void }) 
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 border-l-4 border-slate-800 dark:border-slate-100 pl-3">Foren-Übersicht</h3>
+      <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 border-l-4 border-neutral-800 dark:border-neutral-100 pl-3">Foren-Übersicht</h3>
 
       {!forumGroups?.length ? (
-        <div className="card p-8 text-center text-slate-400">Noch keine Foren erstellt. Admins können unter Einstellungen Foren anlegen.</div>
+        <div className="card p-8 text-center text-neutral-400">Noch keine Foren erstellt. Admins können unter Einstellungen Foren anlegen.</div>
       ) : forumGroups.map(group => (
         <div key={group.id} className="card overflow-hidden">
-          <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="px-5 py-3 flex items-center gap-3 border-b border-neutral-100 dark:border-neutral-800">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
               style={{ backgroundColor: group.color || '#6366f1' }}>
               {group.name[0]}
             </div>
-            <span className="font-semibold text-slate-800 dark:text-slate-100">{group.name}</span>
+            <span className="font-semibold text-neutral-800 dark:text-neutral-100">{group.name}</span>
           </div>
-          <div className="divide-y divide-slate-50 dark:divide-slate-800">
+          <div className="divide-y divide-neutral-50 dark:divide-neutral-800">
             {group.forums.map(forum => (
               <button key={forum.id} onClick={() => onSelectForum(forum.id)}
-                className="w-full flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left">
-                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                className="w-full flex items-center gap-4 px-5 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors text-left">
+                <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500">
                   <MessageCircle size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                  <div className="font-medium text-neutral-700 dark:text-neutral-200 flex items-center gap-2">
                     {forum.name}
                     {forum.isAnnouncement && <span className="text-[10px] font-semibold text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">Ankündigung</span>}
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5">
+                  <div className="text-xs text-neutral-400 mt-0.5">
                     {forum.postCount} Posts {forum.lastPostAt && `· Letzter Beitrag ${getTimeAgo(forum.lastPostAt)}`}
                   </div>
                 </div>
@@ -361,7 +362,7 @@ function ForumsSidebar({ activeForumId, onSelectForum }: { activeForumId: string
       {forumGroups?.map(group => (
         <div key={group.id}>
           <button onClick={() => setCollapsed({ ...collapsed, [group.id]: !collapsed[group.id] })}
-            className="flex items-center gap-2 w-full px-2 py-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            className="flex items-center gap-2 w-full px-2 py-1.5 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold"
               style={{ backgroundColor: group.color || '#6366f1' }}>{group.name[0]}</div>
             <span className="flex-1 text-left">{group.name}</span>
@@ -372,7 +373,7 @@ function ForumsSidebar({ activeForumId, onSelectForum }: { activeForumId: string
               {group.forums.map(forum => (
                 <button key={forum.id} onClick={() => onSelectForum(activeForumId === forum.id ? null : forum.id)}
                   className={`w-full text-left text-xs px-2 py-1.5 rounded flex items-center gap-2 transition-colors ${
-                    activeForumId === forum.id ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    activeForumId === forum.id ? 'bg-accent/10 dark:bg-accent/10 text-accent' : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
                   }`}>
                   <MessageCircle size={12} /> {forum.name}
                 </button>
@@ -397,13 +398,13 @@ function MyProfileCard({ onViewProfile }: { onViewProfile: (id: string) => void 
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewProfile(user?.id || '')}>
         <Avatar url={user?.avatarUrl} firstName={user?.firstName || ''} lastName={user?.lastName || ''} size="lg" />
         <div>
-          <div className="font-semibold text-slate-800 dark:text-slate-100">{user?.firstName} {user?.lastName}</div>
-          {profile?.headline && <div className="text-xs text-indigo-500">{profile.headline}</div>}
+          <div className="font-semibold text-neutral-800 dark:text-neutral-100">{user?.firstName} {user?.lastName}</div>
+          {profile?.headline && <div className="text-xs text-accent">{profile.headline}</div>}
         </div>
       </div>
-      <div className="flex gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-center text-xs">
-        <div className="flex-1"><span className="block font-semibold text-slate-700 dark:text-slate-200">{profile?.postCount || 0}</span> Beiträge</div>
-        <div className="flex-1"><span className="block font-semibold text-slate-700 dark:text-slate-200">{profile?.followerCount || 0}</span> Follower</div>
+      <div className="flex gap-4 mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 text-center text-xs">
+        <div className="flex-1"><span className="block font-semibold text-neutral-700 dark:text-neutral-200">{profile?.postCount || 0}</span> Beiträge</div>
+        <div className="flex-1"><span className="block font-semibold text-neutral-700 dark:text-neutral-200">{profile?.followerCount || 0}</span> Follower</div>
       </div>
     </div>
   );
@@ -418,11 +419,21 @@ function MyProfileView({ onViewProfile }: { onViewProfile: (id: string) => void 
 
 function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string; onBack: () => void; onViewProfile: (id: string) => void; isOwn?: boolean }) {
   const qc = useQueryClient();
-  const { user } = useAuthStore();
+  const { user, fetchMe } = useAuthStore();
   const [subTab, setSubTab] = useState<'posts' | 'saved'>('posts');
   const [editingBio, setEditingBio] = useState(false);
   const [bio, setBio] = useState('');
   const [headline, setHeadline] = useState('');
+  const avatarRef = useRef<HTMLInputElement>(null);
+
+  const avatarUploadMut = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api<{ avatarUrl: string }>('/files/avatar', { method: 'POST', body: formData });
+    },
+    onSuccess: () => { fetchMe(); qc.invalidateQueries({ queryKey: ['community-profile'] }); },
+  });
 
   const { data: profile } = useQuery({
     queryKey: ['community-profile', userId],
@@ -450,7 +461,7 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-profile'] }); setEditingBio(false); },
   });
 
-  if (!profile) return <div className="text-center py-12 text-slate-400">Laden...</div>;
+  if (!profile) return <div className="text-center py-12 text-neutral-400">Laden...</div>;
 
   const isSelf = userId === user?.id;
 
@@ -459,11 +470,27 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
       {/* Profile Card */}
       <div className="card p-6">
         <div className="flex items-center gap-4">
-          <Avatar url={profile.avatarUrl} firstName={profile.firstName} lastName={profile.lastName} size="xl" />
+          {isSelf ? (
+            <div className="relative group cursor-pointer" onClick={() => avatarRef.current?.click()}>
+              <Avatar url={profile.avatarUrl} firstName={profile.firstName} lastName={profile.lastName} size="xl" />
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera size={20} className="text-white" />
+              </div>
+              {avatarUploadMut.isPending && (
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <input ref={avatarRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) avatarUploadMut.mutate(f); }} />
+            </div>
+          ) : (
+            <Avatar url={profile.avatarUrl} firstName={profile.firstName} lastName={profile.lastName} size="xl" />
+          )}
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{profile.firstName} {profile.lastName}</h2>
-            {profile.headline && <div className="text-sm text-indigo-500 mt-0.5">{profile.headline}</div>}
-            {profile.position && <div className="text-sm text-slate-400 mt-0.5">{profile.position}{profile.department ? ` · ${profile.department}` : ''}</div>}
+            <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">{profile.firstName} {profile.lastName}</h2>
+            {profile.headline && <div className="text-sm text-accent mt-0.5">{profile.headline}</div>}
+            {profile.position && <div className="text-sm text-neutral-400 mt-0.5">{profile.position}{profile.department ? ` · ${profile.department}` : ''}</div>}
           </div>
           {!isSelf && (
             <button onClick={() => followMut.mutate()}
@@ -472,10 +499,10 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
             </button>
           )}
         </div>
-        <div className="flex gap-6 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <div className="text-center"><span className="block text-lg font-bold text-slate-800 dark:text-slate-100">{profile.followerCount}</span><span className="text-xs text-slate-400">Follower</span></div>
-          <div className="text-center"><span className="block text-lg font-bold text-slate-800 dark:text-slate-100">{profile.followingCount}</span><span className="text-xs text-slate-400">Gefolgt</span></div>
-          <div className="text-center"><span className="block text-lg font-bold text-slate-800 dark:text-slate-100">{profile.postCount}</span><span className="text-xs text-slate-400">Beiträge</span></div>
+        <div className="flex gap-6 mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+          <div className="text-center"><span className="block text-lg font-bold text-neutral-800 dark:text-neutral-100">{profile.followerCount}</span><span className="text-xs text-neutral-400">Follower</span></div>
+          <div className="text-center"><span className="block text-lg font-bold text-neutral-800 dark:text-neutral-100">{profile.followingCount}</span><span className="text-xs text-neutral-400">Gefolgt</span></div>
+          <div className="text-center"><span className="block text-lg font-bold text-neutral-800 dark:text-neutral-100">{profile.postCount}</span><span className="text-xs text-neutral-400">Beiträge</span></div>
         </div>
       </div>
 
@@ -484,12 +511,12 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
         <div className="flex-1 min-w-0 space-y-4">
           <div className="flex gap-2">
             <button onClick={() => setSubTab('posts')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${subTab === 'posts' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-800' : 'bg-white dark:bg-slate-800 text-slate-600 border border-slate-200 dark:border-slate-700'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${subTab === 'posts' ? 'bg-neutral-800 text-white dark:bg-white dark:text-neutral-800' : 'bg-white dark:bg-neutral-800 text-neutral-600 border border-neutral-200 dark:border-neutral-700'}`}>
               Beiträge
             </button>
             {isSelf && (
               <button onClick={() => setSubTab('saved')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 ${subTab === 'saved' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-800' : 'bg-white dark:bg-slate-800 text-slate-600 border border-slate-200 dark:border-slate-700'}`}>
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 ${subTab === 'saved' ? 'bg-neutral-800 text-white dark:bg-white dark:text-neutral-800' : 'bg-white dark:bg-neutral-800 text-neutral-600 border border-neutral-200 dark:border-neutral-700'}`}>
                 <Bookmark size={14} /> Gespeichert
               </button>
             )}
@@ -507,10 +534,10 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
         <div className="hidden lg:block w-72 flex-shrink-0">
           <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"><User size={16} /> Profil-Informationen</h3>
+              <h3 className="font-semibold text-neutral-700 dark:text-neutral-200 flex items-center gap-1.5"><User size={16} /> Profil-Informationen</h3>
               {isSelf && !editingBio && (
                 <button onClick={() => { setEditingBio(true); setBio(profile.bio || ''); setHeadline(profile.headline || ''); }}
-                  className="text-slate-400 hover:text-slate-600"><Edit size={14} /></button>
+                  className="text-neutral-400 hover:text-neutral-600"><Edit size={14} /></button>
               )}
             </div>
             {editingBio ? (
@@ -524,10 +551,41 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
               </div>
             ) : (
               <div>
-                <p className="text-xs uppercase font-semibold text-slate-400 mb-1">Über mich</p>
-                <p className="text-sm text-slate-600 dark:text-slate-300">{profile.bio || 'Noch keine Informationen hinterlegt.'}</p>
+                <p className="text-xs uppercase font-semibold text-neutral-400 mb-1">Über mich</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">{profile.bio || 'Noch keine Informationen hinterlegt.'}</p>
               </div>
             )}
+
+            {/* Profile details */}
+            <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
+              {profile.position && (
+                <div className="flex items-center gap-2.5">
+                  <Briefcase size={14} className="text-neutral-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase font-semibold text-neutral-400">Position</p>
+                    <p className="text-sm text-neutral-700 dark:text-neutral-200">{profile.position}</p>
+                  </div>
+                </div>
+              )}
+              {profile.department && (
+                <div className="flex items-center gap-2.5">
+                  <Building2 size={14} className="text-neutral-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase font-semibold text-neutral-400">Abteilung</p>
+                    <p className="text-sm text-neutral-700 dark:text-neutral-200">{profile.department}</p>
+                  </div>
+                </div>
+              )}
+              {profile.email && (
+                <div className="flex items-center gap-2.5">
+                  <Mail size={14} className="text-neutral-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase font-semibold text-neutral-400">E-Mail</p>
+                    <p className="text-sm text-neutral-700 dark:text-neutral-200">{profile.email}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -541,8 +599,8 @@ function Avatar({ url, firstName, lastName, size = 'md' }: { url?: string | null
   const dims = { sm: 'w-7 h-7 text-[10px]', md: 'w-10 h-10 text-sm', lg: 'w-12 h-12 text-base', xl: 'w-16 h-16 text-xl' }[size];
   if (url) return <img src={url} alt="" className={`${dims} rounded-full object-cover flex-shrink-0`} />;
   return (
-    <div className={`${dims} rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0`}>
-      <span className="font-medium text-indigo-600 dark:text-indigo-400">{firstName?.[0]}{lastName?.[0]}</span>
+    <div className={`${dims} rounded-full bg-accent/20 dark:bg-accent/15 flex items-center justify-center flex-shrink-0`}>
+      <span className="font-medium text-accent dark:text-accent">{firstName?.[0]}{lastName?.[0]}</span>
     </div>
   );
 }

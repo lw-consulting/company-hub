@@ -24,17 +24,17 @@ interface Task {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'open', label: 'Offen', icon: Circle, color: 'text-slate-400' },
+  { value: 'open', label: 'Offen', icon: Circle, color: 'text-neutral-400' },
   { value: 'in_progress', label: 'In Arbeit', icon: Clock, color: 'text-blue-500' },
   { value: 'done', label: 'Erledigt', icon: CheckCircle, color: 'text-emerald-500' },
-  { value: 'cancelled', label: 'Abgebrochen', icon: X, color: 'text-slate-300' },
+  { value: 'cancelled', label: 'Abgebrochen', icon: X, color: 'text-neutral-300' },
 ];
 
 const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'Dringend', icon: AlertTriangle, color: 'text-red-500' },
   { value: 'high', label: 'Hoch', icon: ArrowUp, color: 'text-orange-500' },
   { value: 'medium', label: 'Mittel', icon: Minus, color: 'text-blue-500' },
-  { value: 'low', label: 'Niedrig', icon: ArrowDown, color: 'text-slate-400' },
+  { value: 'low', label: 'Niedrig', icon: ArrowDown, color: 'text-neutral-400' },
 ];
 
 export default function TasksPage() {
@@ -77,7 +77,7 @@ export default function TasksPage() {
                 key={f.key}
                 onClick={() => setFilter(f.key as any)}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  filter === f.key ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+                  filter === f.key ? 'bg-white shadow-sm text-neutral-800' : 'text-neutral-500'
                 }`}
               >
                 {f.label}
@@ -105,7 +105,7 @@ export default function TasksPage() {
 
       {/* Task counts */}
       <div className="flex gap-4 text-sm">
-        <span className="text-slate-500">{tasksData?.total || 0} Aufgaben</span>
+        <span className="text-neutral-500">{tasksData?.total || 0} Aufgaben</span>
         <span className="text-emerald-600">
           {tasks.filter((t) => t.status === 'done').length} erledigt
         </span>
@@ -117,9 +117,9 @@ export default function TasksPage() {
       {/* Tasks list */}
       <div className="space-y-2">
         {isLoading ? (
-          <div className="text-center py-12 text-slate-400">Laden...</div>
+          <div className="text-center py-12 text-neutral-400">Laden...</div>
         ) : tasks.length === 0 ? (
-          <div className="card p-12 text-center text-slate-400">
+          <div className="card p-12 text-center text-neutral-400">
             Keine Aufgaben gefunden
           </div>
         ) : (
@@ -145,11 +145,11 @@ export default function TasksPage() {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <div className={`font-medium ${task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                  <div className={`font-medium ${task.status === 'done' ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
                     {task.title}
                   </div>
                   {task.description && (
-                    <div className="text-sm text-slate-400 truncate mt-0.5">{task.description}</div>
+                    <div className="text-sm text-neutral-400 truncate mt-0.5">{task.description}</div>
                   )}
                 </div>
 
@@ -162,7 +162,7 @@ export default function TasksPage() {
 
                   {/* Due date */}
                   {task.dueDate && (
-                    <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
+                    <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-500 font-medium' : 'text-neutral-400'}`}>
                       <CalendarDays size={13} />
                       {new Date(task.dueDate + 'T00:00:00').toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}
                     </span>
@@ -170,7 +170,7 @@ export default function TasksPage() {
 
                   {/* Assignee */}
                   {task.assignee && (
-                    <span className="text-xs text-slate-400 flex items-center gap-1" title={`${task.assignee.firstName} ${task.assignee.lastName}`}>
+                    <span className="text-xs text-neutral-400 flex items-center gap-1" title={`${task.assignee.firstName} ${task.assignee.lastName}`}>
                       <User size={13} />
                       {task.assignee.firstName[0]}{task.assignee.lastName[0]}
                     </span>
@@ -178,7 +178,7 @@ export default function TasksPage() {
 
                   {/* Status select */}
                   <select
-                    className="text-xs border border-border rounded px-1.5 py-1 bg-white text-slate-600"
+                    className="text-xs border border-border rounded px-1.5 py-1 bg-white text-neutral-600"
                     value={task.status}
                     onChange={(e) => updateMutation.mutate({ id: task.id, status: e.target.value })}
                   >
@@ -237,8 +237,8 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-lg">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Neue Aufgabe</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <h3 className="text-lg font-semibold text-neutral-800">Neue Aufgabe</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600"><X size={20} /></button>
         </div>
 
         {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}

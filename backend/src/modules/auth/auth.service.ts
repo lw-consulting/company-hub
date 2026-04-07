@@ -126,6 +126,19 @@ export async function getMe(userId: string) {
   return user || null;
 }
 
+export async function updateMe(
+  userId: string,
+  data: { firstName?: string; lastName?: string; phone?: string }
+) {
+  const updateFields: Record<string, any> = { updatedAt: new Date() };
+  if (data.firstName !== undefined) updateFields.firstName = data.firstName;
+  if (data.lastName !== undefined) updateFields.lastName = data.lastName;
+  if (data.phone !== undefined) updateFields.phone = data.phone;
+
+  await db.update(users).set(updateFields).where(eq(users.id, userId));
+  return getMe(userId);
+}
+
 export async function changePassword(
   userId: string,
   currentPassword: string,

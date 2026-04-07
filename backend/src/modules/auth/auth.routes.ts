@@ -42,6 +42,15 @@ export async function authRoutes(fastify: FastifyInstance) {
     return reply.send({ data: user, statusCode: 200 });
   });
 
+  // PATCH /api/auth/me — update own profile
+  fastify.patch('/api/auth/me', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const body = request.body as { firstName?: string; lastName?: string; phone?: string };
+    const user = await authService.updateMe(request.user.sub, body);
+    return reply.send({ data: user, statusCode: 200 });
+  });
+
   // POST /api/auth/change-password
   fastify.post('/api/auth/change-password', {
     preHandler: [fastify.authenticate],

@@ -59,7 +59,7 @@ function CourseList({ onOpenCourse, isAdmin }: { onOpenCourse: (id: string) => v
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Kurse</h2>
+        <h2 className="text-lg font-semibold text-neutral-800">Kurse</h2>
         {isAdmin && (
           <button onClick={() => setShowForm(true)} className="btn-primary">
             <Plus size={18} /> Kurs erstellen
@@ -70,12 +70,12 @@ function CourseList({ onOpenCourse, isAdmin }: { onOpenCourse: (id: string) => v
       {/* My Enrollments */}
       {enrollments && enrollments.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Meine Kurse</h3>
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Meine Kurse</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {enrollments.map((e) => (
               <button key={e.id} onClick={() => onOpenCourse(e.courseId)}
                 className="card overflow-hidden text-left hover:shadow-elevated transition-shadow">
-                <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <div className="h-32 bg-gradient-to-br from-neutral-800 to-neutral-600 flex items-center justify-center">
                   {e.courseThumbnail ? (
                     <img src={e.courseThumbnail} className="w-full h-full object-cover" />
                   ) : (
@@ -83,8 +83,8 @@ function CourseList({ onOpenCourse, isAdmin }: { onOpenCourse: (id: string) => v
                   )}
                 </div>
                 <div className="p-4">
-                  <div className="font-medium text-slate-800">{e.courseTitle}</div>
-                  {e.courseDescription && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{e.courseDescription}</p>}
+                  <div className="font-medium text-neutral-800">{e.courseTitle}</div>
+                  {e.courseDescription && <p className="text-sm text-neutral-500 mt-1 line-clamp-2">{e.courseDescription}</p>}
                   <CourseProgressBar courseId={e.courseId} />
                 </div>
               </button>
@@ -95,25 +95,25 @@ function CourseList({ onOpenCourse, isAdmin }: { onOpenCourse: (id: string) => v
 
       {/* All Courses */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
+        <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           {isAdmin ? 'Alle Kurse' : 'Verfügbare Kurse'}
         </h3>
         {!courses?.length ? (
-          <div className="card p-12 text-center text-slate-400">Noch keine Kurse vorhanden.</div>
+          <div className="card p-12 text-center text-neutral-400">Noch keine Kurse vorhanden.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {courses.filter(c => !enrolledIds.has(c.id)).map((c) => (
               <button key={c.id} onClick={() => onOpenCourse(c.id)}
                 className="card overflow-hidden text-left hover:shadow-elevated transition-shadow">
-                <div className="h-32 bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
+                <div className="h-32 bg-gradient-to-br from-neutral-400 to-neutral-600 flex items-center justify-center">
                   <GraduationCap size={36} className="text-white/80" />
                 </div>
                 <div className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="font-medium text-slate-800">{c.title}</div>
+                    <div className="font-medium text-neutral-800">{c.title}</div>
                     {!c.isPublished && <span className="badge-warning text-[10px]">Entwurf</span>}
                   </div>
-                  {c.description && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{c.description}</p>}
+                  {c.description && <p className="text-sm text-neutral-500 mt-1 line-clamp-2">{c.description}</p>}
                 </div>
               </button>
             ))}
@@ -141,16 +141,16 @@ function CourseDetail({ courseId, onBack, onOpenLesson }: {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
   });
 
-  if (!course) return <div className="text-center py-12 text-slate-400">Laden...</div>;
+  if (!course) return <div className="text-center py-12 text-neutral-400">Laden...</div>;
 
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="btn-ghost p-2"><ArrowLeft size={18} /></button>
-        <h2 className="text-lg font-semibold text-slate-800">{course.title}</h2>
+        <h2 className="text-lg font-semibold text-neutral-800">{course.title}</h2>
       </div>
 
-      {course.description && <p className="text-slate-500">{course.description}</p>}
+      {course.description && <p className="text-neutral-500">{course.description}</p>}
 
       <button onClick={() => enrollMutation.mutate()} className="btn-primary">
         <BookOpen size={18} /> Kurs starten
@@ -160,28 +160,28 @@ function CourseDetail({ courseId, onBack, onOpenLesson }: {
       <div className="space-y-4">
         {course.modules?.map((mod, mi) => (
           <div key={mod.id} className="card">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-800">
-                <span className="text-slate-400 mr-2">{mi + 1}.</span>{mod.title}
+            <div className="px-5 py-4 border-b border-neutral-100">
+              <h3 className="font-semibold text-neutral-800">
+                <span className="text-neutral-400 mr-2">{mi + 1}.</span>{mod.title}
               </h3>
-              {mod.description && <p className="text-sm text-slate-500 mt-1">{mod.description}</p>}
+              {mod.description && <p className="text-sm text-neutral-500 mt-1">{mod.description}</p>}
             </div>
-            <div className="divide-y divide-slate-50">
+            <div className="divide-y divide-neutral-50">
               {mod.lessons.map((lesson, li) => (
                 <button key={lesson.id} onClick={() => onOpenLesson(lesson.id)}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors text-left">
+                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors text-left">
                   {lesson.contentType === 'video' ? (
-                    <Video size={16} className="text-indigo-500 flex-shrink-0" />
+                    <Video size={16} className="text-accent flex-shrink-0" />
                   ) : (
-                    <FileText size={16} className="text-slate-400 flex-shrink-0" />
+                    <FileText size={16} className="text-neutral-400 flex-shrink-0" />
                   )}
-                  <span className="text-sm text-slate-700 flex-1">{lesson.title}</span>
+                  <span className="text-sm text-neutral-700 flex-1">{lesson.title}</span>
                   {lesson.videoDurationSeconds && (
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-neutral-400">
                       {Math.floor(lesson.videoDurationSeconds / 60)} Min.
                     </span>
                   )}
-                  <ChevronRight size={14} className="text-slate-300" />
+                  <ChevronRight size={14} className="text-neutral-300" />
                 </button>
               ))}
             </div>
@@ -205,13 +205,13 @@ function LessonPlayer({ lessonId, courseId, onBack }: { lessonId: string; course
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['course-progress'] }),
   });
 
-  if (!lesson) return <div className="text-center py-12 text-slate-400">Laden...</div>;
+  if (!lesson) return <div className="text-center py-12 text-neutral-400">Laden...</div>;
 
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="btn-ghost p-2"><ArrowLeft size={18} /></button>
-        <h2 className="text-lg font-semibold text-slate-800">{lesson.title}</h2>
+        <h2 className="text-lg font-semibold text-neutral-800">{lesson.title}</h2>
       </div>
 
       {/* Video */}
@@ -249,12 +249,12 @@ function CourseProgressBar({ courseId }: { courseId: string }) {
 
   return (
     <div className="mt-3">
-      <div className="flex justify-between text-xs text-slate-400 mb-1">
+      <div className="flex justify-between text-xs text-neutral-400 mb-1">
         <span>{progress.completedLessons}/{progress.totalLessons} Lektionen</span>
         <span>{progress.progressPercent}%</span>
       </div>
-      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${progress.progressPercent}%` }} />
+      <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${progress.progressPercent}%`, backgroundColor: 'var(--color-accent)' }} />
       </div>
     </div>
   );
@@ -273,8 +273,8 @@ function CreateCourseModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Neuer Kurs</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <h3 className="text-lg font-semibold text-neutral-800">Neuer Kurs</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600"><X size={20} /></button>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
           <div>

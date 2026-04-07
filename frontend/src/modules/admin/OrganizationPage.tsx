@@ -59,7 +59,7 @@ export default function OrganizationPage() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64 text-slate-400">Laden...</div>;
+    return <div className="flex items-center justify-center h-64 text-neutral-400">Laden...</div>;
   }
 
   return (
@@ -67,7 +67,7 @@ export default function OrganizationPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* General */}
         <div className="card p-6">
-          <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
             <Building2 size={18} className="text-primary" />
             Allgemein
           </h3>
@@ -111,7 +111,7 @@ export default function OrganizationPage() {
 
         {/* Branding / CI */}
         <div className="card p-6">
-          <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
             <Palette size={18} className="text-primary" />
             Corporate Identity
           </h3>
@@ -145,7 +145,7 @@ export default function OrganizationPage() {
 
             {/* Preview */}
             <div className="mt-4 p-4 bg-surface-secondary rounded-lg">
-              <p className="text-xs text-slate-400 mb-3 uppercase font-semibold tracking-wider">Vorschau</p>
+              <p className="text-xs text-neutral-400 mb-3 uppercase font-semibold tracking-wider">Vorschau</p>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -175,7 +175,7 @@ export default function OrganizationPage() {
 
         {/* Work Time Settings */}
         <div className="card p-6">
-          <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
             <Clock size={18} className="text-primary" />
             Arbeitszeiteinstellungen
           </h3>
@@ -211,7 +211,7 @@ export default function OrganizationPage() {
                   value={form.breakAfterMinutes || 360}
                   onChange={(e) => setForm({ ...form, breakAfterMinutes: Number(e.target.value) })}
                 />
-                <p className="text-xs text-slate-400 mt-1">Standard: 360 Min (6 Std)</p>
+                <p className="text-xs text-neutral-400 mt-1">Standard: 360 Min (6 Std)</p>
               </div>
               <div>
                 <label className="label">Pausendauer (Minuten)</label>
@@ -223,7 +223,7 @@ export default function OrganizationPage() {
                   value={form.breakDurationMinutes || 30}
                   onChange={(e) => setForm({ ...form, breakDurationMinutes: Number(e.target.value) })}
                 />
-                <p className="text-xs text-slate-400 mt-1">Standard: 30 Min</p>
+                <p className="text-xs text-neutral-400 mt-1">Standard: 30 Min</p>
               </div>
             </div>
           </div>

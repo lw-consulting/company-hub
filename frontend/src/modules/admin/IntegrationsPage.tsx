@@ -28,33 +28,33 @@ function WebhooksTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">{hooks?.length || 0} Webhooks konfiguriert</p>
+        <p className="text-sm text-neutral-500">{hooks?.length || 0} Webhooks konfiguriert</p>
         <button onClick={() => setShowForm(true)} className="btn-primary"><Plus size={16} /> Webhook</button>
       </div>
 
       <div className="space-y-2">
         {!hooks?.length ? (
-          <div className="card p-8 text-center text-slate-400">Noch keine Webhooks. Verbinden Sie externe Tools wie Zapier, Make oder N8n.</div>
+          <div className="card p-8 text-center text-neutral-400">Noch keine Webhooks. Verbinden Sie externe Tools wie Zapier, Make oder N8n.</div>
         ) : hooks.map((h: any) => (
           <div key={h.id} className="card p-4 flex items-center gap-4">
-            <Webhook size={18} className="text-slate-400 flex-shrink-0" />
+            <Webhook size={18} className="text-neutral-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-slate-800">{h.name}</div>
-              <div className="text-xs text-slate-400 truncate">{h.url}</div>
+              <div className="font-medium text-neutral-800">{h.name}</div>
+              <div className="text-xs text-neutral-400 truncate">{h.url}</div>
               <div className="flex gap-1 mt-1 flex-wrap">
                 {(h.events as string[])?.slice(0, 3).map((e: string) => (
                   <span key={e} className="badge-primary text-[10px]">{e}</span>
                 ))}
                 {(h.events as string[])?.length > 3 && (
-                  <span className="text-[10px] text-slate-400">+{(h.events as string[]).length - 3}</span>
+                  <span className="text-[10px] text-neutral-400">+{(h.events as string[]).length - 3}</span>
                 )}
               </div>
             </div>
             <button onClick={() => toggleMutation.mutate({ id: h.id, isActive: !h.isActive })}
-              className={h.isActive ? 'text-emerald-500' : 'text-slate-300'}>
+              className={h.isActive ? 'text-emerald-500' : 'text-neutral-300'}>
               {h.isActive ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
             </button>
-            <button onClick={() => deleteMutation.mutate(h.id)} className="text-slate-300 hover:text-red-500">
+            <button onClick={() => deleteMutation.mutate(h.id)} className="text-neutral-300 hover:text-red-500">
               <Trash2 size={16} />
             </button>
           </div>
@@ -88,9 +88,9 @@ function CreateWebhookModal({ onClose }: { onClose: () => void }) {
     return (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div className="card p-6 w-full max-w-md">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Webhook erstellt</h3>
-          <p className="text-sm text-slate-500 mb-3">Kopieren Sie den Signing-Secret. Er wird nur einmal angezeigt:</p>
-          <div className="bg-slate-100 p-3 rounded font-mono text-sm break-all">{createdSecret}</div>
+          <h3 className="text-lg font-semibold text-neutral-800 mb-4">Webhook erstellt</h3>
+          <p className="text-sm text-neutral-500 mb-3">Kopieren Sie den Signing-Secret. Er wird nur einmal angezeigt:</p>
+          <div className="bg-neutral-100 p-3 rounded font-mono text-sm break-all">{createdSecret}</div>
           <button onClick={onClose} className="btn-primary w-full mt-4">Fertig</button>
         </div>
       </div>
@@ -101,8 +101,8 @@ function CreateWebhookModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Neuer Webhook</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <h3 className="text-lg font-semibold text-neutral-800">Neuer Webhook</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600"><X size={20} /></button>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
           <div>
@@ -117,7 +117,7 @@ function CreateWebhookModal({ onClose }: { onClose: () => void }) {
             <label className="label">Events</label>
             <div className="grid grid-cols-2 gap-1 mt-1">
               {events?.map((e) => (
-                <label key={e} className="flex items-center gap-2 text-sm text-slate-600 p-1">
+                <label key={e} className="flex items-center gap-2 text-sm text-neutral-600 p-1">
                   <input type="checkbox" checked={form.events.includes(e)}
                     onChange={(ev) => setForm({ ...form, events: ev.target.checked ? [...form.events, e] : form.events.filter(x => x !== e) })} />
                   {e}
@@ -154,19 +154,19 @@ function ApiKeysTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">{keys?.length || 0} API-Keys</p>
+        <p className="text-sm text-neutral-500">{keys?.length || 0} API-Keys</p>
         <button onClick={() => setShowForm(true)} className="btn-primary"><Plus size={16} /> API-Key</button>
       </div>
 
       <div className="space-y-2">
         {!keys?.length ? (
-          <div className="card p-8 text-center text-slate-400">Noch keine API-Keys. Erstellen Sie einen für externe Systeme.</div>
+          <div className="card p-8 text-center text-neutral-400">Noch keine API-Keys. Erstellen Sie einen für externe Systeme.</div>
         ) : keys.map((k: any) => (
           <div key={k.id} className="card p-4 flex items-center gap-4">
-            <Key size={18} className="text-slate-400 flex-shrink-0" />
+            <Key size={18} className="text-neutral-400 flex-shrink-0" />
             <div className="flex-1">
-              <div className="font-medium text-slate-800">{k.name}</div>
-              <div className="text-xs text-slate-400 font-mono">{k.keyPrefix}...●●●●●●</div>
+              <div className="font-medium text-neutral-800">{k.name}</div>
+              <div className="text-xs text-neutral-400 font-mono">{k.keyPrefix}...●●●●●●</div>
               <div className="flex gap-1 mt-1">
                 {(k.scopes as string[])?.slice(0, 3).map((s: string) => (
                   <span key={s} className="badge-primary text-[10px]">{s}</span>
@@ -213,12 +213,12 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
     return (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div className="card p-6 w-full max-w-md">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">API-Key erstellt</h3>
-          <p className="text-sm text-slate-500 mb-3">Kopieren Sie den Key. Er wird nur einmal angezeigt:</p>
-          <div className="bg-slate-100 p-3 rounded font-mono text-xs break-all flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-neutral-800 mb-4">API-Key erstellt</h3>
+          <p className="text-sm text-neutral-500 mb-3">Kopieren Sie den Key. Er wird nur einmal angezeigt:</p>
+          <div className="bg-neutral-100 p-3 rounded font-mono text-xs break-all flex items-center gap-2">
             <span className="flex-1">{createdKey}</span>
             <button onClick={() => { navigator.clipboard.writeText(createdKey); setCopied(true); }}
-              className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+              className="text-neutral-400 hover:text-neutral-600 flex-shrink-0">
               {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
             </button>
           </div>
@@ -232,8 +232,8 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Neuer API-Key</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <h3 className="text-lg font-semibold text-neutral-800">Neuer API-Key</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600"><X size={20} /></button>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
           <div>
@@ -244,7 +244,7 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
             <label className="label">Berechtigungen (Scopes)</label>
             <div className="grid grid-cols-2 gap-1 mt-1">
               {scopes?.map((s) => (
-                <label key={s} className="flex items-center gap-2 text-sm text-slate-600 p-1">
+                <label key={s} className="flex items-center gap-2 text-sm text-neutral-600 p-1">
                   <input type="checkbox" checked={form.scopes.includes(s)}
                     onChange={(ev) => setForm({ ...form, scopes: ev.target.checked ? [...form.scopes, s] : form.scopes.filter(x => x !== s) })} />
                   {s}
@@ -269,13 +269,13 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div className="flex bg-slate-100 rounded-lg p-0.5 w-fit">
+      <div className="flex bg-neutral-100 rounded-lg p-0.5 w-fit">
         <button onClick={() => setTab('webhooks')}
-          className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${tab === 'webhooks' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>
+          className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${tab === 'webhooks' ? 'bg-white shadow-sm text-neutral-800' : 'text-neutral-500'}`}>
           <Webhook size={16} /> Webhooks
         </button>
         <button onClick={() => setTab('api-keys')}
-          className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${tab === 'api-keys' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>
+          className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${tab === 'api-keys' ? 'bg-white shadow-sm text-neutral-800' : 'text-neutral-500'}`}>
           <Key size={16} /> API-Keys
         </button>
       </div>

@@ -8,8 +8,8 @@ const STAGE_LABELS: Record<string, string> = {
   negotiation: 'Verhandlung', won: 'Gewonnen', lost: 'Verloren',
 };
 const STAGE_COLORS: Record<string, string> = {
-  lead: 'bg-slate-100 text-slate-700', qualified: 'bg-blue-100 text-blue-700',
-  proposal: 'bg-indigo-100 text-indigo-700', negotiation: 'bg-amber-100 text-amber-700',
+  lead: 'bg-neutral-100 text-neutral-700', qualified: 'bg-blue-100 text-blue-700',
+  proposal: 'bg-violet-100 text-violet-700', negotiation: 'bg-amber-100 text-amber-700',
   won: 'bg-emerald-100 text-emerald-700', lost: 'bg-red-100 text-red-700',
 };
 
@@ -18,7 +18,7 @@ export default function CrmPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-fit">
+      <div className="flex bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5 w-fit">
         {[
           { key: 'pipeline', label: 'Pipeline', icon: TrendingUp },
           { key: 'contacts', label: 'Kontakte', icon: Users },
@@ -26,7 +26,7 @@ export default function CrmPage() {
         ].map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key as any)}
             className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
-              tab === key ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100' : 'text-slate-500'
+              tab === key ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-800 dark:text-neutral-100' : 'text-neutral-500'
             }`}>
             <Icon size={16} /> {label}
           </button>
@@ -67,8 +67,8 @@ function PipelineView() {
         <div className="flex gap-4">
           {pipeline?.filter(p => p.stage !== 'lost').map(p => (
             <div key={p.stage} className="text-center">
-              <div className="text-lg font-bold text-slate-800 dark:text-slate-100">{p.count}</div>
-              <div className="text-xs text-slate-400">{STAGE_LABELS[p.stage]}</div>
+              <div className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{p.count}</div>
+              <div className="text-xs text-neutral-400">{STAGE_LABELS[p.stage]}</div>
             </div>
           ))}
         </div>
@@ -81,13 +81,13 @@ function PipelineView() {
           <div key={stage} className="min-w-[250px] flex-shrink-0">
             <div className="flex items-center gap-2 mb-2">
               <span className={`badge ${STAGE_COLORS[stage]}`}>{STAGE_LABELS[stage]}</span>
-              <span className="text-xs text-slate-400">{deals?.filter(d => d.stage === stage).length || 0}</span>
+              <span className="text-xs text-neutral-400">{deals?.filter(d => d.stage === stage).length || 0}</span>
             </div>
             <div className="space-y-2">
               {deals?.filter(d => d.stage === stage).map(deal => (
                 <div key={deal.id} className="card p-3">
-                  <div className="font-medium text-sm text-slate-800 dark:text-slate-100">{deal.title}</div>
-                  {deal.companyName && <div className="text-xs text-slate-400 mt-0.5">{deal.companyName}</div>}
+                  <div className="font-medium text-sm text-neutral-800 dark:text-neutral-100">{deal.title}</div>
+                  {deal.companyName && <div className="text-xs text-neutral-400 mt-0.5">{deal.companyName}</div>}
                   {deal.value && (
                     <div className="text-sm font-semibold text-emerald-600 mt-1">
                       {parseFloat(deal.value).toLocaleString('de-AT')} {deal.currency}
@@ -96,7 +96,7 @@ function PipelineView() {
                   <div className="flex gap-1 mt-2">
                     {stages.filter(s => s !== 'lost' && s !== stage).slice(0, 2).map(s => (
                       <button key={s} onClick={() => updateMutation.mutate({ id: deal.id, stage: s })}
-                        className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600">
+                        className="text-[10px] px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-accent/10 hover:text-accent">
                         → {STAGE_LABELS[s]}
                       </button>
                     ))}
@@ -130,22 +130,22 @@ function ContactsView() {
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Name</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Unternehmen</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">E-Mail</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Telefon</th>
+            <tr className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
+              <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-4 py-3">Name</th>
+              <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-4 py-3">Unternehmen</th>
+              <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-4 py-3">E-Mail</th>
+              <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-4 py-3">Telefon</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {!contacts?.length ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Keine Kontakte</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-neutral-400">Keine Kontakte</td></tr>
             ) : contacts.map((c: any) => (
-              <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
-                <td className="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">{c.firstName} {c.lastName}</td>
-                <td className="px-4 py-3 text-sm text-slate-500">{c.companyName || '-'}</td>
-                <td className="px-4 py-3 text-sm text-slate-500">{c.email || '-'}</td>
-                <td className="px-4 py-3 text-sm text-slate-500">{c.phone || '-'}</td>
+              <tr key={c.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
+                <td className="px-4 py-3 text-sm font-medium text-neutral-800 dark:text-neutral-200">{c.firstName} {c.lastName}</td>
+                <td className="px-4 py-3 text-sm text-neutral-500">{c.companyName || '-'}</td>
+                <td className="px-4 py-3 text-sm text-neutral-500">{c.email || '-'}</td>
+                <td className="px-4 py-3 text-sm text-neutral-500">{c.phone || '-'}</td>
               </tr>
             ))}
           </tbody>
@@ -170,12 +170,12 @@ function CompaniesView() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {!companies?.length ? (
-          <div className="col-span-full card p-8 text-center text-slate-400">Keine Unternehmen</div>
+          <div className="col-span-full card p-8 text-center text-neutral-400">Keine Unternehmen</div>
         ) : companies.map((c: any) => (
           <div key={c.id} className="card p-4">
-            <div className="font-medium text-slate-800 dark:text-slate-100">{c.name}</div>
-            {c.industry && <div className="text-xs text-slate-400 mt-0.5">{c.industry}</div>}
-            <div className="flex gap-3 mt-3 text-xs text-slate-500">
+            <div className="font-medium text-neutral-800 dark:text-neutral-100">{c.name}</div>
+            {c.industry && <div className="text-xs text-neutral-400 mt-0.5">{c.industry}</div>}
+            <div className="flex gap-3 mt-3 text-xs text-neutral-500">
               {c.website && <span className="flex items-center gap-1"><Globe size={12} /> {c.website}</span>}
               {c.phone && <span className="flex items-center gap-1"><Phone size={12} /> {c.phone}</span>}
             </div>
@@ -197,7 +197,7 @@ function CreateDealModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-md">
-        <div className="flex justify-between mb-4"><h3 className="font-semibold text-slate-800 dark:text-slate-100">Neuer Deal</h3><button onClick={onClose}><X size={18} /></button></div>
+        <div className="flex justify-between mb-4"><h3 className="font-semibold text-neutral-800 dark:text-neutral-100">Neuer Deal</h3><button onClick={onClose}><X size={18} /></button></div>
         <form onSubmit={e => { e.preventDefault(); mut.mutate({ ...form, value: form.value || undefined }); }} className="space-y-3">
           <div><label className="label">Titel</label><input className="input" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
           <div><label className="label">Wert (EUR)</label><input className="input" type="number" step="0.01" value={form.value} onChange={e => setForm({...form, value: e.target.value})} /></div>
@@ -215,7 +215,7 @@ function CreateContactModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-md">
-        <div className="flex justify-between mb-4"><h3 className="font-semibold text-slate-800 dark:text-slate-100">Neuer Kontakt</h3><button onClick={onClose}><X size={18} /></button></div>
+        <div className="flex justify-between mb-4"><h3 className="font-semibold text-neutral-800 dark:text-neutral-100">Neuer Kontakt</h3><button onClick={onClose}><X size={18} /></button></div>
         <form onSubmit={e => { e.preventDefault(); mut.mutate(form); }} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div><label className="label">Vorname</label><input className="input" required value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} /></div>
@@ -237,7 +237,7 @@ function CreateCompanyModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-md">
-        <div className="flex justify-between mb-4"><h3 className="font-semibold text-slate-800 dark:text-slate-100">Neues Unternehmen</h3><button onClick={onClose}><X size={18} /></button></div>
+        <div className="flex justify-between mb-4"><h3 className="font-semibold text-neutral-800 dark:text-neutral-100">Neues Unternehmen</h3><button onClick={onClose}><X size={18} /></button></div>
         <form onSubmit={e => { e.preventDefault(); mut.mutate(form); }} className="space-y-3">
           <div><label className="label">Name</label><input className="input" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
           <div><label className="label">Website</label><input className="input" value={form.website} onChange={e => setForm({...form, website: e.target.value})} /></div>

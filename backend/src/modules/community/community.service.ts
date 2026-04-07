@@ -355,7 +355,7 @@ export async function toggleFollow(followerId: string, followingId: string) {
 export async function getUserProfile(userId: string, currentUserId?: string) {
   const [user] = await db.select({
     id: users.id, firstName: users.firstName, lastName: users.lastName,
-    avatarUrl: users.avatarUrl, department: users.department, position: users.position,
+    email: users.email, avatarUrl: users.avatarUrl, department: users.department, position: users.position,
   }).from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw new NotFoundError('Benutzer nicht gefunden');
 

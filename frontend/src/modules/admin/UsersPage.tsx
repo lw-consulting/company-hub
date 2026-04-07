@@ -45,7 +45,7 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-slate-500 text-sm">
+          <p className="text-neutral-500 text-sm">
             {usersData?.total || 0} Benutzer gesamt
           </p>
         </div>
@@ -60,7 +60,7 @@ export default function UsersPage() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={18} className="absolute left-3 top-1/2 -tranneutral-y-1/2 text-neutral-400" />
         <input
           type="text"
           className="input pl-10"
@@ -76,25 +76,25 @@ export default function UsersPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-surface-secondary border-b border-border">
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Name</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">E-Mail</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Rolle</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Abteilung</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Status</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Module</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-6 py-3">Name</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-6 py-3">E-Mail</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-6 py-3">Rolle</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-6 py-3">Abteilung</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-6 py-3">Status</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-6 py-3">Module</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-neutral-400">
                     Laden...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-neutral-400">
                     Keine Benutzer gefunden
                   </td>
                 </tr>
@@ -118,18 +118,18 @@ export default function UsersPage() {
                               {user.firstName[0]}{user.lastName[0]}
                             </span>
                           </div>
-                          <span className="font-medium text-slate-800">
+                          <span className="font-medium text-neutral-800">
                             {user.firstName} {user.lastName}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{user.email}</td>
+                      <td className="px-6 py-4 text-sm text-neutral-500">{user.email}</td>
                       <td className="px-6 py-4">
                         <span className="badge-primary">
                           {ROLE_LABELS[user.role as Role] || user.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">
+                      <td className="px-6 py-4 text-sm text-neutral-500">
                         {user.department || '-'}
                       </td>
                       <td className="px-6 py-4">
@@ -148,7 +148,7 @@ export default function UsersPage() {
                         </button>
                       </td>
                       <td className="px-6 py-4">
-                        <button className="text-slate-400 hover:text-slate-600 p-1">
+                        <button className="text-neutral-400 hover:text-neutral-600 p-1">
                           <MoreVertical size={16} />
                         </button>
                       </td>
@@ -218,8 +218,8 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Neuer Benutzer</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <h3 className="text-lg font-semibold text-neutral-800">Neuer Benutzer</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
             <X size={20} />
           </button>
         </div>
@@ -317,14 +317,14 @@ function ModulePermissionsModal({ userId, onClose }: { userId: string; onClose: 
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Modul-Berechtigungen</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <h3 className="text-lg font-semibold text-neutral-800">Modul-Berechtigungen</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
             <X size={20} />
           </button>
         </div>
 
         {isLoading ? (
-          <div className="py-8 text-center text-slate-400">Laden...</div>
+          <div className="py-8 text-center text-neutral-400">Laden...</div>
         ) : (
           <div className="space-y-2">
             {MODULES.map((mod) => {
@@ -337,18 +337,18 @@ function ModulePermissionsModal({ userId, onClose }: { userId: string; onClose: 
                   className="flex items-center justify-between p-3 rounded-lg hover:bg-surface-secondary"
                 >
                   <div>
-                    <div className="text-sm font-medium text-slate-700">{mod.name}</div>
-                    <div className="text-xs text-slate-400">{mod.description}</div>
+                    <div className="text-sm font-medium text-neutral-700">{mod.name}</div>
+                    <div className="text-xs text-neutral-400">{mod.description}</div>
                   </div>
                   <button
                     onClick={() => toggleModule(mod.id, isEnabled)}
                     className={`w-10 h-6 rounded-full transition-colors relative ${
-                      isEnabled ? 'bg-primary' : 'bg-slate-200'
+                      isEnabled ? 'bg-primary' : 'bg-neutral-200'
                     }`}
                   >
                     <div
                       className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        isEnabled ? 'translate-x-4.5 left-0' : 'left-0.5'
+                        isEnabled ? 'tranneutral-x-4.5 left-0' : 'left-0.5'
                       }`}
                     />
                   </button>

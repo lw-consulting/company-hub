@@ -3,6 +3,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import path from 'node:path';
 import { env } from './config/env.js';
 import { authPlugin } from './plugins/auth.plugin.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -18,6 +21,7 @@ import { aiAssistantsRoutes } from './modules/ai-assistants/ai-assistants.routes
 import { coursesRoutes } from './modules/courses/courses.routes.js';
 import { integrationsRoutes } from './modules/integrations/integrations.routes.js';
 import { crmRoutes } from './modules/crm/crm.routes.js';
+import { filesRoutes } from './modules/files/files.routes.js';
 import { AppError } from './lib/errors.js';
 
 const fastify = Fastify({
@@ -42,6 +46,16 @@ await fastify.register(cors, {
 await fastify.register(rateLimit, {
   max: 100,
   timeWindow: '1 minute',
+});
+
+// Multipart (file uploads)
+await fastify.register(multipart, { limits: { fileSize: env.MAX_FILE_SIZE } });
+
+// Static files (uploaded assets)
+await fastify.register(fastifyStatic, {
+  root: env.UPLOAD_DIR,
+  prefix: '/uploads/',
+  decorateReply: false,
 });
 
 // Auth plugin (decorates fastify with authenticate, requireRole, requireModule)
@@ -130,6 +144,7 @@ await fastify.register(aiAssistantsRoutes);
 await fastify.register(coursesRoutes);
 await fastify.register(integrationsRoutes);
 await fastify.register(crmRoutes);
+await fastify.register(filesRoutes);
 
 // Start server
 try {
