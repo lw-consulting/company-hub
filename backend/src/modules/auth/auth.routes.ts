@@ -5,9 +5,7 @@ import { ValidationError } from '../../lib/errors.js';
 
 export async function authRoutes(fastify: FastifyInstance) {
   // POST /api/auth/login
-  fastify.post('/api/auth/login', {
-    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
-  }, async (request, reply) => {
+  fastify.post('/api/auth/login', async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) {
       throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
@@ -18,9 +16,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/auth/refresh
-  fastify.post('/api/auth/refresh', {
-    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
-  }, async (request, reply) => {
+  fastify.post('/api/auth/refresh', async (request, reply) => {
     const parsed = refreshSchema.safeParse(request.body);
     if (!parsed.success) {
       throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
