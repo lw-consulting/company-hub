@@ -56,7 +56,9 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
       content: communityPosts.content,
       mediaUrls: communityPosts.mediaUrls,
       isPinned: communityPosts.isPinned,
-      isHighlight: communityPosts.isHighlight,
+      postType: communityPosts.postType,
+      background: communityPosts.background,
+      tags: communityPosts.tags,
       createdAt: communityPosts.createdAt,
       forumId: communityPosts.forumId,
       authorId: communityPosts.authorId,
@@ -76,7 +78,7 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
   // Get forum names + counts for each post
   const postsWithMeta = await Promise.all(posts.map(async (post) => {
     const [likeCount] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(communityLikes).where(eq(communityLikes.postId, post.id));
+      .from(communityReactions).where(eq(communityReactions.postId, post.id));
     const [commentCount] = await db.select({ count: sql<number>`count(*)::int` })
       .from(communityComments).where(eq(communityComments.postId, post.id));
 
@@ -204,9 +206,13 @@ export async function togglePin(postId: string) {
 }
 
 export async function toggleHighlight(postId: string) {
-  const [post] = await db.select({ isHighlight: communityPosts.isHighlight }).from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
+  const [post] = await db.select({ tags: communityPosts.tags }).from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
   if (!post) throw new NotFoundError('Beitrag nicht gefunden');
-  const [updated] = await db.update(communityPosts).set({ isHighlight: !post.isHighlight }).where(eq(communityPosts.id, postId)).returning();
+  const currentTags = (post.tags as string[]) || [];
+  const newTags = currentTags.includes('highlight')
+    ? currentTags.filter(t => t !== 'highlight')
+    : [...currentTags, 'highlight'];
+  const [updated] = await db.update(communityPosts).set({ tags: newTags }).where(eq(communityPosts.id, postId)).returning();
   return updated;
 }
 
