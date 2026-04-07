@@ -13,6 +13,8 @@ const LeavePage = lazy(() => import('../../modules/leave/LeavePage'));
 const CalendarPage = lazy(() => import('../../modules/calendar/CalendarPage'));
 const CommunityPage = lazy(() => import('../../modules/community/CommunityPage'));
 const TasksPage = lazy(() => import('../../modules/tasks/TasksPage'));
+const AiAssistantsPage = lazy(() => import('../../modules/ai-assistants/AiAssistantsPage'));
+const CoursesPage = lazy(() => import('../../modules/courses/CoursesPage'));
 const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 
 const PAGE_TITLES: Record<string, string> = {
@@ -70,6 +72,10 @@ export default function AppShell() {
         return <CommunityPage />;
       case '/tasks':
         return <TasksPage />;
+      case '/ai':
+        return <AiAssistantsPage />;
+      case '/courses':
+        return <CoursesPage />;
       default:
         return <PlaceholderPage name={pageTitle} path={currentPath} />;
     }

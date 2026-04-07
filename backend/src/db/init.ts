@@ -247,6 +247,128 @@ async function initDatabase() {
       entity_id UUID,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- AI Providers
+    CREATE TABLE IF NOT EXISTS ai_providers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name VARCHAR(100) NOT NULL,
+      type VARCHAR(30) NOT NULL,
+      api_key_encrypted TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- AI Assistants
+    CREATE TABLE IF NOT EXISTS ai_assistants (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      provider_id UUID NOT NULL REFERENCES ai_providers(id) ON DELETE CASCADE,
+      name VARCHAR(200) NOT NULL,
+      slug VARCHAR(100) NOT NULL,
+      description TEXT,
+      avatar_url TEXT,
+      model VARCHAR(100) NOT NULL,
+      system_prompt TEXT,
+      temperature NUMERIC(3,2) DEFAULT 0.70,
+      max_tokens INTEGER DEFAULT 2048,
+      tone VARCHAR(50) DEFAULT 'professional',
+      language VARCHAR(10) DEFAULT 'de',
+      opening_message TEXT,
+      forbidden_topics JSONB DEFAULT '[]',
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_assistants_org ON ai_assistants(org_id);
+
+    -- AI Assistant Assignments
+    CREATE TABLE IF NOT EXISTS ai_assistant_assignments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      assistant_id UUID NOT NULL REFERENCES ai_assistants(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- AI Chat Sessions
+    CREATE TABLE IF NOT EXISTS ai_chat_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      assistant_id UUID NOT NULL REFERENCES ai_assistants(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(300),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- AI Chat Messages
+    CREATE TABLE IF NOT EXISTS ai_chat_messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      session_id UUID NOT NULL REFERENCES ai_chat_sessions(id) ON DELETE CASCADE,
+      role VARCHAR(20) NOT NULL,
+      content TEXT NOT NULL,
+      token_count INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_chat_messages(session_id);
+
+    -- Courses
+    CREATE TABLE IF NOT EXISTS courses (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      title VARCHAR(300) NOT NULL,
+      description TEXT,
+      thumbnail_url TEXT,
+      is_published BOOLEAN NOT NULL DEFAULT false,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Course Modules
+    CREATE TABLE IF NOT EXISTS course_modules (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      title VARCHAR(300) NOT NULL,
+      description TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Course Lessons
+    CREATE TABLE IF NOT EXISTS course_lessons (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      module_id UUID NOT NULL REFERENCES course_modules(id) ON DELETE CASCADE,
+      title VARCHAR(300) NOT NULL,
+      content_type VARCHAR(20) NOT NULL DEFAULT 'text',
+      text_content TEXT,
+      video_url TEXT,
+      video_duration_seconds INTEGER,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Course Enrollments
+    CREATE TABLE IF NOT EXISTS course_enrollments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at TIMESTAMPTZ
+    );
+
+    -- Lesson Progress
+    CREATE TABLE IF NOT EXISTS lesson_progress (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      lesson_id UUID NOT NULL REFERENCES course_lessons(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      completed BOOLEAN NOT NULL DEFAULT false,
+      progress_percent INTEGER NOT NULL DEFAULT 0,
+      completed_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   console.log('Database tables initialized successfully.');

@@ -14,6 +14,8 @@ import { leaveRoutes } from './modules/leave/leave.routes.js';
 import { calendarRoutes } from './modules/calendar/calendar.routes.js';
 import { communityRoutes } from './modules/community/community.routes.js';
 import { tasksRoutes } from './modules/tasks/tasks.routes.js';
+import { aiAssistantsRoutes } from './modules/ai-assistants/ai-assistants.routes.js';
+import { coursesRoutes } from './modules/courses/courses.routes.js';
 import { AppError } from './lib/errors.js';
 
 const fastify = Fastify({
@@ -81,6 +83,8 @@ await fastify.register(leaveRoutes);
 await fastify.register(calendarRoutes);
 await fastify.register(communityRoutes);
 await fastify.register(tasksRoutes);
+await fastify.register(aiAssistantsRoutes);
+await fastify.register(coursesRoutes);
 
 // Start server
 try {
