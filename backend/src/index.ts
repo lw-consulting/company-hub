@@ -44,7 +44,7 @@ await fastify.register(rateLimit, {
 await fastify.register(authPlugin);
 
 // Error handler
-fastify.setErrorHandler((error, request, reply) => {
+fastify.setErrorHandler((error: any, request, reply) => {
   if (error instanceof AppError) {
     return reply.status(error.statusCode).send({
       error: error.code,
