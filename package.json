@@ -1,0 +1,26 @@
+{
+  "name": "company-hub",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build -w @company-hub/shared && npm run build -w backend && npm run build -w frontend",
+    "build:shared": "npm run build -w @company-hub/shared",
+    "build:backend": "npm run build -w backend",
+    "build:frontend": "npm run build -w frontend",
+    "lint": "eslint .",
+    "typecheck": "tsc -b",
+    "db:generate": "npm run db:generate -w backend",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:seed": "npm run db:seed -w backend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
