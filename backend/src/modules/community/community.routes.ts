@@ -5,80 +5,121 @@ export async function communityRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
   const modGuard = fastify.requireModule('community');
 
-  // GET /api/community/feed
-  fastify.get('/api/community/feed', { preHandler: [modGuard] }, async (request, reply) => {
-    const { page, pageSize } = request.query as any;
-    const feed = await communityService.getFeed(
-      request.user.orgId,
-      Number(page) || 1,
-      Number(pageSize) || 20
-    );
+  // ============== FORUMS ==============
+
+  fastify.get('/api/community/forums', { preHandler: [modGuard] }, async (req, reply) => {
+    const forums = await communityService.getForumStructure(req.user.orgId);
+    return reply.send({ data: forums, statusCode: 200 });
+  });
+
+  fastify.post('/api/community/forum-groups', { preHandler: [modGuard, fastify.requireRole('admin')] }, async (req, reply) => {
+    const group = await communityService.createForumGroup(req.user.orgId, req.body as any);
+    return reply.status(201).send({ data: group, statusCode: 201 });
+  });
+
+  fastify.post('/api/community/forums', { preHandler: [modGuard, fastify.requireRole('admin')] }, async (req, reply) => {
+    const { groupId, ...data } = req.body as any;
+    const forum = await communityService.createForum(req.user.orgId, groupId, data);
+    return reply.status(201).send({ data: forum, statusCode: 201 });
+  });
+
+  fastify.delete('/api/community/forums/:id', { preHandler: [modGuard, fastify.requireRole('admin')] }, async (req, reply) => {
+    await communityService.deleteForum((req.params as any).id);
+    return reply.send({ data: { message: 'Forum gelöscht' }, statusCode: 200 });
+  });
+
+  // ============== FEED ==============
+
+  fastify.get('/api/community/feed', { preHandler: [modGuard] }, async (req, reply) => {
+    const { page, pageSize, forumId, userId } = req.query as any;
+    const feed = await communityService.getFeed(req.user.orgId, {
+      page: Number(page) || 1, pageSize: Number(pageSize) || 20, forumId, userId,
+    });
     return reply.send({ data: feed, statusCode: 200 });
   });
 
-  // POST /api/community/posts
-  fastify.post('/api/community/posts', { preHandler: [modGuard] }, async (request, reply) => {
-    const data = request.body as any;
-    const post = await communityService.createPost(request.user.sub, request.user.orgId, data);
+  // ============== POSTS ==============
+
+  fastify.post('/api/community/posts', { preHandler: [modGuard] }, async (req, reply) => {
+    const post = await communityService.createPost(req.user.sub, req.user.orgId, req.body as any);
     return reply.status(201).send({ data: post, statusCode: 201 });
   });
 
-  // GET /api/community/posts/:id
-  fastify.get('/api/community/posts/:id', { preHandler: [modGuard] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const post = await communityService.getPostById(id, request.user.sub);
+  fastify.get('/api/community/posts/:id', { preHandler: [modGuard] }, async (req, reply) => {
+    const post = await communityService.getPostById((req.params as any).id, req.user.sub);
     return reply.send({ data: post, statusCode: 200 });
   });
 
-  // DELETE /api/community/posts/:id
-  fastify.delete('/api/community/posts/:id', { preHandler: [modGuard] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    await communityService.deletePost(id, request.user.sub);
-    return reply.send({ data: { message: 'Beitrag gelöscht' }, statusCode: 200 });
+  fastify.delete('/api/community/posts/:id', { preHandler: [modGuard] }, async (req, reply) => {
+    await communityService.deletePost((req.params as any).id, req.user.sub);
+    return reply.send({ data: { message: 'Gelöscht' }, statusCode: 200 });
   });
 
-  // POST /api/community/posts/:id/pin (admin only)
-  fastify.post('/api/community/posts/:id/pin', {
-    preHandler: [modGuard, fastify.requireRole('admin')],
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const post = await communityService.togglePin(id);
+  fastify.post('/api/community/posts/:id/pin', { preHandler: [modGuard, fastify.requireRole('admin')] }, async (req, reply) => {
+    const post = await communityService.togglePin((req.params as any).id);
     return reply.send({ data: post, statusCode: 200 });
   });
 
-  // POST /api/community/posts/:id/like
-  fastify.post('/api/community/posts/:id/like', { preHandler: [modGuard] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const result = await communityService.toggleLike(request.user.sub, id);
+  fastify.post('/api/community/posts/:id/highlight', { preHandler: [modGuard, fastify.requireRole('admin')] }, async (req, reply) => {
+    const post = await communityService.toggleHighlight((req.params as any).id);
+    return reply.send({ data: post, statusCode: 200 });
+  });
+
+  // ============== LIKES & BOOKMARKS ==============
+
+  fastify.post('/api/community/posts/:id/like', { preHandler: [modGuard] }, async (req, reply) => {
+    const result = await communityService.toggleLike(req.user.sub, (req.params as any).id);
     return reply.send({ data: result, statusCode: 200 });
   });
 
-  // GET /api/community/posts/:id/comments
-  fastify.get('/api/community/posts/:id/comments', { preHandler: [modGuard] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const comments = await communityService.getComments(id);
+  fastify.post('/api/community/posts/:id/bookmark', { preHandler: [modGuard] }, async (req, reply) => {
+    const result = await communityService.toggleBookmark(req.user.sub, (req.params as any).id);
+    return reply.send({ data: result, statusCode: 200 });
+  });
+
+  fastify.get('/api/community/saved', { preHandler: [modGuard] }, async (req, reply) => {
+    const posts = await communityService.getSavedPosts(req.user.sub);
+    return reply.send({ data: posts, statusCode: 200 });
+  });
+
+  // ============== COMMENTS ==============
+
+  fastify.get('/api/community/posts/:id/comments', { preHandler: [modGuard] }, async (req, reply) => {
+    const comments = await communityService.getComments((req.params as any).id);
     return reply.send({ data: comments, statusCode: 200 });
   });
 
-  // POST /api/community/posts/:id/comments
-  fastify.post('/api/community/posts/:id/comments', { preHandler: [modGuard] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const data = request.body as any;
-    const comment = await communityService.createComment(request.user.sub, id, data);
+  fastify.post('/api/community/posts/:id/comments', { preHandler: [modGuard] }, async (req, reply) => {
+    const comment = await communityService.createComment(req.user.sub, (req.params as any).id, req.body as any);
     return reply.status(201).send({ data: comment, statusCode: 201 });
   });
 
-  // DELETE /api/community/comments/:id
-  fastify.delete('/api/community/comments/:id', { preHandler: [modGuard] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    await communityService.deleteComment(id, request.user.sub);
-    return reply.send({ data: { message: 'Kommentar gelöscht' }, statusCode: 200 });
+  fastify.delete('/api/community/comments/:id', { preHandler: [modGuard] }, async (req, reply) => {
+    await communityService.deleteComment((req.params as any).id, req.user.sub);
+    return reply.send({ data: { message: 'Gelöscht' }, statusCode: 200 });
   });
 
-  // GET /api/community/profile/:userId
-  fastify.get('/api/community/profile/:userId', { preHandler: [modGuard] }, async (request, reply) => {
-    const { userId } = request.params as { userId: string };
-    const profile = await communityService.getUserProfile(userId, request.user.orgId);
+  // ============== FOLLOWS ==============
+
+  fastify.post('/api/community/users/:id/follow', { preHandler: [modGuard] }, async (req, reply) => {
+    const result = await communityService.toggleFollow(req.user.sub, (req.params as any).id);
+    return reply.send({ data: result, statusCode: 200 });
+  });
+
+  // ============== PROFILE ==============
+
+  fastify.get('/api/community/profile/:userId', { preHandler: [modGuard] }, async (req, reply) => {
+    const profile = await communityService.getUserProfile((req.params as any).userId, req.user.sub);
+    return reply.send({ data: profile, statusCode: 200 });
+  });
+
+  fastify.get('/api/community/my-profile', { preHandler: [modGuard] }, async (req, reply) => {
+    const profile = await communityService.getUserProfile(req.user.sub);
+    return reply.send({ data: profile, statusCode: 200 });
+  });
+
+  fastify.patch('/api/community/my-profile', { preHandler: [modGuard] }, async (req, reply) => {
+    const profile = await communityService.updateProfile(req.user.sub, req.body as any);
     return reply.send({ data: profile, statusCode: 200 });
   });
 }

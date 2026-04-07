@@ -1,120 +1,183 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiDelete } from '../../lib/api';
+import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
-import { Heart, MessageCircle, Send, Pin, Trash2, User, MoreHorizontal } from 'lucide-react';
+import {
+  Home, List, User, Search, Heart, MessageCircle, Bookmark, Send, Pin,
+  Flame, Trash2, Image, Video, File, ChevronDown, ChevronUp, Plus, X, Edit,
+} from 'lucide-react';
 
+// Types
 interface Post {
-  id: string;
-  content: string;
-  mediaUrls: string[];
-  isPinned: boolean;
-  createdAt: string;
-  authorId: string;
-  authorFirstName: string;
-  authorLastName: string;
-  authorAvatarUrl: string | null;
-  authorPosition: string | null;
-  authorDepartment: string | null;
-  likeCount: number;
-  commentCount: number;
-  isLiked?: boolean;
+  id: string; content: string; mediaUrls: string[]; isPinned: boolean; isHighlight: boolean;
+  createdAt: string; forumId: string | null; forumName: string | null;
+  authorId: string; authorFirstName: string; authorLastName: string;
+  authorAvatarUrl: string | null; authorPosition: string | null; authorDepartment: string | null;
+  likeCount: number; commentCount: number; isLiked?: boolean; isBookmarked?: boolean;
 }
-
 interface Comment {
-  id: string;
-  content: string;
-  parentId: string | null;
-  createdAt: string;
-  authorId: string;
-  authorFirstName: string;
-  authorLastName: string;
-  authorAvatarUrl: string | null;
+  id: string; content: string; parentId: string | null; createdAt: string;
+  authorId: string; authorFirstName: string; authorLastName: string; authorAvatarUrl: string | null;
+}
+interface ForumGroup { id: string; name: string; icon: string | null; color: string; forums: Forum[]; }
+interface Forum { id: string; name: string; description: string | null; icon: string | null; isAnnouncement: boolean; postCount: number; lastPostAt: string | null; }
+interface Profile {
+  id: string; firstName: string; lastName: string; avatarUrl: string | null;
+  department: string | null; position: string | null; bio: string | null; headline: string | null;
+  postCount: number; followerCount: number; followingCount: number; isFollowing: boolean;
 }
 
 export default function CommunityPage() {
-  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<'feed' | 'forums' | 'profile'>('feed');
+  const [activeForumId, setActiveForumId] = useState<string | null>(null);
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null);
+
+  if (viewProfileId) {
+    return <ProfileView userId={viewProfileId} onBack={() => setViewProfileId(null)} onViewProfile={setViewProfileId} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Hero Banner */}
+      <div className="rounded-xl bg-gradient-to-r from-slate-900 to-slate-700 p-8 text-white">
+        <h2 className="text-2xl font-bold">Community</h2>
+        <p className="text-slate-300 mt-1">Austausch, Wissen & Vernetzung</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2">
+        {[
+          { key: 'feed', label: 'Feed', icon: Home },
+          { key: 'forums', label: 'Foren', icon: List },
+          { key: 'profile', label: 'Dein Profil', icon: User },
+        ].map(({ key, label, icon: Icon }) => (
+          <button key={key} onClick={() => { setTab(key as any); setActiveForumId(null); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === key ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-800' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+            }`}>
+            <Icon size={16} /> {label}
+          </button>
+        ))}
+
+        <div className="ml-auto">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input className="input pl-9 w-56" placeholder="Community-Suche" />
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      {tab === 'feed' && (
+        <div className="flex gap-6">
+          <div className="flex-1 min-w-0">
+            <FeedView forumId={activeForumId} onViewProfile={setViewProfileId} />
+          </div>
+          <div className="hidden lg:block w-72 flex-shrink-0 space-y-4">
+            <MyProfileCard onViewProfile={setViewProfileId} />
+            <ForumsSidebar activeForumId={activeForumId} onSelectForum={setActiveForumId} />
+          </div>
+        </div>
+      )}
+      {tab === 'forums' && <ForumsView onSelectForum={(id) => { setActiveForumId(id); setTab('feed'); }} />}
+      {tab === 'profile' && <MyProfileView onViewProfile={setViewProfileId} />}
+    </div>
+  );
+}
+
+// ============== FEED ==============
+
+function FeedView({ forumId, onViewProfile }: { forumId: string | null; onViewProfile: (id: string) => void }) {
+  const qc = useQueryClient();
   const { user } = useAuthStore();
   const [newPost, setNewPost] = useState('');
+  const [postForumId, setPostForumId] = useState<string | null>(forumId);
 
   const { data: feedData, isLoading } = useQuery({
-    queryKey: ['community-feed'],
-    queryFn: () => apiGet<{ data: Post[]; total: number }>('/community/feed'),
+    queryKey: ['community-feed', forumId],
+    queryFn: () => apiGet<{ data: Post[] }>(`/community/feed${forumId ? `?forumId=${forumId}` : ''}`),
   });
 
-  const createPostMutation = useMutation({
-    mutationFn: (content: string) => apiPost('/community/posts', { content }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
-      setNewPost('');
-    },
+  const { data: forums } = useQuery({
+    queryKey: ['community-forums'],
+    queryFn: () => apiGet<ForumGroup[]>('/community/forums'),
   });
 
-  const handlePost = () => {
-    if (!newPost.trim()) return;
-    createPostMutation.mutate(newPost);
-  };
+  const allForums = forums?.flatMap(g => g.forums) || [];
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiPost('/community/posts', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-feed'] }); setNewPost(''); },
+  });
 
   const posts = feedData?.data || [];
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-4">
       {/* Create Post */}
       <div className="card p-4">
         <div className="flex gap-3">
-          <Avatar
-            url={user?.avatarUrl}
-            firstName={user?.firstName || ''}
-            lastName={user?.lastName || ''}
-          />
+          <Avatar url={user?.avatarUrl} firstName={user?.firstName || ''} lastName={user?.lastName || ''} />
           <div className="flex-1">
-            <textarea
-              className="input min-h-[80px] resize-none"
-              placeholder="Was gibt es Neues?"
-              value={newPost}
-              onChange={(e) => setNewPost(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handlePost();
-              }}
-            />
-            <div className="flex justify-between items-center mt-3">
-              <span className="text-xs text-slate-400">Strg+Enter zum Posten</span>
-              <button
-                onClick={handlePost}
-                disabled={!newPost.trim() || createPostMutation.isPending}
-                className="btn-primary"
-              >
-                <Send size={16} />
-                Posten
+            <textarea className="input min-h-[60px] resize-none" placeholder="Erstelle einen Beitrag..."
+              value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+            <div className="flex items-center justify-between mt-3">
+              <div className="flex gap-2">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+                  <Image size={14} /> Bilder
+                </button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+                  <Video size={14} /> Video
+                </button>
+                {allForums.length > 0 && (
+                  <select className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-slate-500"
+                    value={postForumId || ''} onChange={(e) => setPostForumId(e.target.value || null)}>
+                    <option value="">Kein Forum</option>
+                    {allForums.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                )}
+              </div>
+              <button onClick={() => createMutation.mutate({ content: newPost, forumId: postForumId })}
+                disabled={!newPost.trim()} className="btn-primary text-sm">
+                <Send size={14} /> Posten
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Feed */}
+      {/* Filter */}
+      {forumId && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <span>Forum: <strong className="text-slate-700 dark:text-slate-300">{allForums.find(f => f.id === forumId)?.name}</strong></span>
+        </div>
+      )}
+
+      {/* Posts */}
       {isLoading ? (
         <div className="text-center py-12 text-slate-400">Laden...</div>
       ) : posts.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
-          Noch keine Beiträge. Sei der Erste!
-        </div>
+        <div className="text-center py-12 text-slate-400">Noch keine Beiträge</div>
       ) : (
-        posts.map((post) => <PostCard key={post.id} post={post} />)
+        posts.map(post => <PostCard key={post.id} post={post} onViewProfile={onViewProfile} />)
       )}
     </div>
   );
 }
 
-function PostCard({ post }: { post: Post }) {
-  const queryClient = useQueryClient();
+function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: string) => void }) {
+  const qc = useQueryClient();
   const { user } = useAuthStore();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
 
-  const likeMutation = useMutation({
+  const likeMut = useMutation({
     mutationFn: () => apiPost(`/community/posts/${post.id}/like`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['community-feed'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['community-feed'] }),
+  });
+  const bookmarkMut = useMutation({
+    mutationFn: () => apiPost(`/community/posts/${post.id}/bookmark`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['community-feed'] }),
   });
 
   const { data: comments } = useQuery({
@@ -123,127 +186,95 @@ function PostCard({ post }: { post: Post }) {
     enabled: showComments,
   });
 
-  const commentMutation = useMutation({
+  const commentMut = useMutation({
     mutationFn: (content: string) => apiPost(`/community/posts/${post.id}/comments`, { content }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['post-comments', post.id] });
-      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
-      setCommentText('');
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['post-comments', post.id] }); qc.invalidateQueries({ queryKey: ['community-feed'] }); setCommentText(''); },
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => apiDelete(`/community/posts/${post.id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['community-feed'] }),
-  });
-
-  const timeAgo = getTimeAgo(post.createdAt);
-  const isOwner = user?.id === post.authorId;
 
   return (
     <div className="card">
       {post.isPinned && (
-        <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+        <div className="px-4 py-1.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800 flex items-center gap-1.5 text-xs text-amber-600 font-medium">
           <Pin size={12} /> Angepinnt
         </div>
       )}
-
       <div className="p-4">
-        {/* Author header */}
+        {/* Author */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <Avatar
-              url={post.authorAvatarUrl}
-              firstName={post.authorFirstName}
-              lastName={post.authorLastName}
-            />
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewProfile(post.authorId)}>
+            <Avatar url={post.authorAvatarUrl} firstName={post.authorFirstName} lastName={post.authorLastName} />
             <div>
-              <div className="font-medium text-slate-800">
+              <div className="font-medium text-slate-800 dark:text-slate-100 hover:underline">
                 {post.authorFirstName} {post.authorLastName}
               </div>
               <div className="text-xs text-slate-400">
-                {post.authorPosition && `${post.authorPosition} · `}{timeAgo}
+                {post.authorPosition && `${post.authorPosition} · `}
+                {post.forumName && <span className="text-indigo-500">{post.forumName} · </span>}
+                {getTimeAgo(post.createdAt)}
               </div>
             </div>
           </div>
-          {isOwner && (
-            <button
-              onClick={() => { if (confirm('Beitrag löschen?')) deleteMutation.mutate(); }}
-              className="text-slate-300 hover:text-red-500 p-1"
-            >
-              <Trash2 size={16} />
-            </button>
+          {post.isHighlight && (
+            <span className="flex items-center gap-1 text-xs font-medium text-orange-500">
+              <Flame size={14} /> Highlight
+            </span>
           )}
         </div>
 
         {/* Content */}
-        <p className="text-slate-700 whitespace-pre-wrap mb-4">{post.content}</p>
+        <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap mb-4">{post.content}</p>
+
+        {/* Reaction counts */}
+        {(post.likeCount > 0 || post.commentCount > 0) && (
+          <div className="flex items-center gap-4 text-xs text-slate-400 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+            {post.likeCount > 0 && <span>{post.likeCount} Gefällt mir</span>}
+            {post.commentCount > 0 && <span>{post.commentCount} Kommentare</span>}
+          </div>
+        )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4 pt-3 border-t border-border-light">
-          <button
-            onClick={() => likeMutation.mutate()}
-            className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-              post.isLiked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'
-            }`}
-          >
-            <Heart size={18} fill={post.isLiked ? 'currentColor' : 'none'} />
-            {post.likeCount > 0 && post.likeCount}
+        <div className="flex items-center gap-1">
+          <button onClick={() => likeMut.mutate()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              post.isLiked ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}>
+            <Heart size={16} fill={post.isLiked ? 'currentColor' : 'none'} /> Gefällt mir
           </button>
-
-          <button
-            onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-primary transition-colors"
-          >
-            <MessageCircle size={18} />
-            {post.commentCount > 0 && post.commentCount}
+          <button onClick={() => setShowComments(!showComments)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+            <MessageCircle size={16} /> Kommentieren
+          </button>
+          <button onClick={() => bookmarkMut.mutate()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              post.isBookmarked ? 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}>
+            <Bookmark size={16} fill={post.isBookmarked ? 'currentColor' : 'none'} /> Speichern
           </button>
         </div>
       </div>
 
-      {/* Comments section */}
+      {/* Comments */}
       {showComments && (
-        <div className="border-t border-border-light bg-surface-secondary/50 p-4 space-y-3">
-          {comments?.map((c) => (
+        <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-4 space-y-3">
+          {comments?.map(c => (
             <div key={c.id} className="flex gap-2.5">
               <Avatar url={c.authorAvatarUrl} firstName={c.authorFirstName} lastName={c.authorLastName} size="sm" />
-              <div className="flex-1 bg-white rounded-lg p-2.5 border border-border-light">
+              <div className="flex-1 bg-white dark:bg-slate-800 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">
-                    {c.authorFirstName} {c.authorLastName}
-                  </span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{c.authorFirstName} {c.authorLastName}</span>
                   <span className="text-[11px] text-slate-400">{getTimeAgo(c.createdAt)}</span>
                 </div>
-                <p className="text-sm text-slate-600 mt-0.5">{c.content}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{c.content}</p>
               </div>
             </div>
           ))}
-
-          {/* New comment */}
-          <div className="flex gap-2.5 pt-1">
-            <Avatar
-              url={user?.avatarUrl}
-              firstName={user?.firstName || ''}
-              lastName={user?.lastName || ''}
-              size="sm"
-            />
+          <div className="flex gap-2.5">
+            <Avatar url={user?.avatarUrl} firstName={user?.firstName || ''} lastName={user?.lastName || ''} size="sm" />
             <div className="flex-1 flex gap-2">
-              <input
-                className="input text-sm"
-                placeholder="Kommentar schreiben..."
-                value={commentText}
+              <input className="input text-sm" placeholder="Kommentar schreiben..." value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && commentText.trim()) {
-                    commentMutation.mutate(commentText);
-                  }
-                }}
-              />
-              <button
-                onClick={() => commentText.trim() && commentMutation.mutate(commentText)}
-                disabled={!commentText.trim()}
-                className="btn-primary px-3"
-              >
+                onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) commentMut.mutate(commentText); }} />
+              <button onClick={() => commentText.trim() && commentMut.mutate(commentText)} disabled={!commentText.trim()} className="btn-primary px-3">
                 <Send size={14} />
               </button>
             </div>
@@ -254,40 +285,263 @@ function PostCard({ post }: { post: Post }) {
   );
 }
 
-function Avatar({
-  url,
-  firstName,
-  lastName,
-  size = 'md',
-}: {
-  url?: string | null;
-  firstName: string;
-  lastName: string;
-  size?: 'sm' | 'md';
-}) {
-  const dims = size === 'sm' ? 'w-7 h-7 text-[10px]' : 'w-10 h-10 text-sm';
+// ============== FORUMS VIEW ==============
 
-  if (url) {
-    return <img src={url} alt="" className={`${dims} rounded-full object-cover flex-shrink-0`} />;
-  }
+function ForumsView({ onSelectForum }: { onSelectForum: (id: string) => void }) {
+  const { data: forumGroups } = useQuery({
+    queryKey: ['community-forums'],
+    queryFn: () => apiGet<ForumGroup[]>('/community/forums'),
+  });
 
   return (
-    <div className={`${dims} rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0`}>
-      <span className="font-medium text-primary">
-        {firstName?.[0]}{lastName?.[0]}
-      </span>
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 border-l-4 border-slate-800 dark:border-slate-100 pl-3">Foren-Übersicht</h3>
+
+      {!forumGroups?.length ? (
+        <div className="card p-8 text-center text-slate-400">Noch keine Foren erstellt. Admins können unter Einstellungen Foren anlegen.</div>
+      ) : forumGroups.map(group => (
+        <div key={group.id} className="card overflow-hidden">
+          <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+              style={{ backgroundColor: group.color || '#6366f1' }}>
+              {group.name[0]}
+            </div>
+            <span className="font-semibold text-slate-800 dark:text-slate-100">{group.name}</span>
+          </div>
+          <div className="divide-y divide-slate-50 dark:divide-slate-800">
+            {group.forums.map(forum => (
+              <button key={forum.id} onClick={() => onSelectForum(forum.id)}
+                className="w-full flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                  <MessageCircle size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    {forum.name}
+                    {forum.isAnnouncement && <span className="text-[10px] font-semibold text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">Ankündigung</span>}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {forum.postCount} Posts {forum.lastPostAt && `· Letzter Beitrag ${getTimeAgo(forum.lastPostAt)}`}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============== SIDEBAR ==============
+
+function ForumsSidebar({ activeForumId, onSelectForum }: { activeForumId: string | null; onSelectForum: (id: string | null) => void }) {
+  const { data: forumGroups } = useQuery({
+    queryKey: ['community-forums'],
+    queryFn: () => apiGet<ForumGroup[]>('/community/forums'),
+  });
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  return (
+    <div className="space-y-2">
+      {forumGroups?.map(group => (
+        <div key={group.id}>
+          <button onClick={() => setCollapsed({ ...collapsed, [group.id]: !collapsed[group.id] })}
+            className="flex items-center gap-2 w-full px-2 py-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold"
+              style={{ backgroundColor: group.color || '#6366f1' }}>{group.name[0]}</div>
+            <span className="flex-1 text-left">{group.name}</span>
+            {collapsed[group.id] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+          {!collapsed[group.id] && (
+            <div className="ml-4 space-y-0.5">
+              {group.forums.map(forum => (
+                <button key={forum.id} onClick={() => onSelectForum(activeForumId === forum.id ? null : forum.id)}
+                  className={`w-full text-left text-xs px-2 py-1.5 rounded flex items-center gap-2 transition-colors ${
+                    activeForumId === forum.id ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}>
+                  <MessageCircle size={12} /> {forum.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MyProfileCard({ onViewProfile }: { onViewProfile: (id: string) => void }) {
+  const { user } = useAuthStore();
+  const { data: profile } = useQuery({
+    queryKey: ['my-community-profile'],
+    queryFn: () => apiGet<Profile>('/community/my-profile'),
+  });
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewProfile(user?.id || '')}>
+        <Avatar url={user?.avatarUrl} firstName={user?.firstName || ''} lastName={user?.lastName || ''} size="lg" />
+        <div>
+          <div className="font-semibold text-slate-800 dark:text-slate-100">{user?.firstName} {user?.lastName}</div>
+          {profile?.headline && <div className="text-xs text-indigo-500">{profile.headline}</div>}
+        </div>
+      </div>
+      <div className="flex gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-center text-xs">
+        <div className="flex-1"><span className="block font-semibold text-slate-700 dark:text-slate-200">{profile?.postCount || 0}</span> Beiträge</div>
+        <div className="flex-1"><span className="block font-semibold text-slate-700 dark:text-slate-200">{profile?.followerCount || 0}</span> Follower</div>
+      </div>
+    </div>
+  );
+}
+
+// ============== PROFILE VIEW ==============
+
+function MyProfileView({ onViewProfile }: { onViewProfile: (id: string) => void }) {
+  const { user } = useAuthStore();
+  return <ProfileView userId={user?.id || ''} onBack={() => {}} onViewProfile={onViewProfile} isOwn />;
+}
+
+function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string; onBack: () => void; onViewProfile: (id: string) => void; isOwn?: boolean }) {
+  const qc = useQueryClient();
+  const { user } = useAuthStore();
+  const [subTab, setSubTab] = useState<'posts' | 'saved'>('posts');
+  const [editingBio, setEditingBio] = useState(false);
+  const [bio, setBio] = useState('');
+  const [headline, setHeadline] = useState('');
+
+  const { data: profile } = useQuery({
+    queryKey: ['community-profile', userId],
+    queryFn: () => apiGet<Profile>(`/community/profile/${userId}`),
+  });
+
+  const { data: feedData } = useQuery({
+    queryKey: ['community-feed', null, userId],
+    queryFn: () => apiGet<{ data: Post[] }>(`/community/feed?userId=${userId}`),
+  });
+
+  const { data: saved } = useQuery({
+    queryKey: ['community-saved'],
+    queryFn: () => apiGet<Post[]>('/community/saved'),
+    enabled: isOwn || userId === user?.id,
+  });
+
+  const followMut = useMutation({
+    mutationFn: () => apiPost(`/community/users/${userId}/follow`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['community-profile'] }),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (data: any) => apiPatch('/community/my-profile', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-profile'] }); setEditingBio(false); },
+  });
+
+  if (!profile) return <div className="text-center py-12 text-slate-400">Laden...</div>;
+
+  const isSelf = userId === user?.id;
+
+  return (
+    <div className="space-y-4">
+      {/* Profile Card */}
+      <div className="card p-6">
+        <div className="flex items-center gap-4">
+          <Avatar url={profile.avatarUrl} firstName={profile.firstName} lastName={profile.lastName} size="xl" />
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{profile.firstName} {profile.lastName}</h2>
+            {profile.headline && <div className="text-sm text-indigo-500 mt-0.5">{profile.headline}</div>}
+            {profile.position && <div className="text-sm text-slate-400 mt-0.5">{profile.position}{profile.department ? ` · ${profile.department}` : ''}</div>}
+          </div>
+          {!isSelf && (
+            <button onClick={() => followMut.mutate()}
+              className={profile.isFollowing ? 'btn-secondary' : 'btn-primary'}>
+              {profile.isFollowing ? 'Entfolgen' : 'Folgen'}
+            </button>
+          )}
+        </div>
+        <div className="flex gap-6 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="text-center"><span className="block text-lg font-bold text-slate-800 dark:text-slate-100">{profile.followerCount}</span><span className="text-xs text-slate-400">Follower</span></div>
+          <div className="text-center"><span className="block text-lg font-bold text-slate-800 dark:text-slate-100">{profile.followingCount}</span><span className="text-xs text-slate-400">Gefolgt</span></div>
+          <div className="text-center"><span className="block text-lg font-bold text-slate-800 dark:text-slate-100">{profile.postCount}</span><span className="text-xs text-slate-400">Beiträge</span></div>
+        </div>
+      </div>
+
+      <div className="flex gap-6">
+        {/* Main content */}
+        <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex gap-2">
+            <button onClick={() => setSubTab('posts')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${subTab === 'posts' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-800' : 'bg-white dark:bg-slate-800 text-slate-600 border border-slate-200 dark:border-slate-700'}`}>
+              Beiträge
+            </button>
+            {isSelf && (
+              <button onClick={() => setSubTab('saved')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 ${subTab === 'saved' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-800' : 'bg-white dark:bg-slate-800 text-slate-600 border border-slate-200 dark:border-slate-700'}`}>
+                <Bookmark size={14} /> Gespeichert
+              </button>
+            )}
+          </div>
+
+          {subTab === 'posts' && feedData?.data?.map(post => (
+            <PostCard key={post.id} post={post} onViewProfile={onViewProfile} />
+          ))}
+          {subTab === 'saved' && saved?.map(post => (
+            <PostCard key={post.id} post={post} onViewProfile={onViewProfile} />
+          ))}
+        </div>
+
+        {/* Bio sidebar */}
+        <div className="hidden lg:block w-72 flex-shrink-0">
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"><User size={16} /> Profil-Informationen</h3>
+              {isSelf && !editingBio && (
+                <button onClick={() => { setEditingBio(true); setBio(profile.bio || ''); setHeadline(profile.headline || ''); }}
+                  className="text-slate-400 hover:text-slate-600"><Edit size={14} /></button>
+              )}
+            </div>
+            {editingBio ? (
+              <div className="space-y-2">
+                <input className="input text-sm" placeholder="Titel / Headline" value={headline} onChange={e => setHeadline(e.target.value)} />
+                <textarea className="input text-sm" rows={4} placeholder="Über mich..." value={bio} onChange={e => setBio(e.target.value)} />
+                <div className="flex gap-2">
+                  <button onClick={() => updateMut.mutate({ bio, headline })} className="btn-primary text-sm">Speichern</button>
+                  <button onClick={() => setEditingBio(false)} className="btn-secondary text-sm">Abbrechen</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-400 mb-1">Über mich</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{profile.bio || 'Noch keine Informationen hinterlegt.'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== SHARED ==============
+
+function Avatar({ url, firstName, lastName, size = 'md' }: { url?: string | null; firstName: string; lastName: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  const dims = { sm: 'w-7 h-7 text-[10px]', md: 'w-10 h-10 text-sm', lg: 'w-12 h-12 text-base', xl: 'w-16 h-16 text-xl' }[size];
+  if (url) return <img src={url} alt="" className={`${dims} rounded-full object-cover flex-shrink-0`} />;
+  return (
+    <div className={`${dims} rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0`}>
+      <span className="font-medium text-indigo-600 dark:text-indigo-400">{firstName?.[0]}{lastName?.[0]}</span>
     </div>
   );
 }
 
 function getTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'gerade eben';
-  if (minutes < 60) return `vor ${minutes} Min.`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `vor ${hours} Std.`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `vor ${days} Tagen`;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'gerade eben';
+  if (m < 60) return `vor ${m} Min.`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `vor ${d} Tagen`;
   return new Date(dateStr).toLocaleDateString('de-AT');
 }

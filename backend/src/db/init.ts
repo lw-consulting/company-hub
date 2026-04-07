@@ -174,18 +174,48 @@ async function initDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    -- Community Forum Groups
+    CREATE TABLE IF NOT EXISTS community_forum_groups (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name VARCHAR(200) NOT NULL,
+      icon VARCHAR(50),
+      color VARCHAR(7) DEFAULT '#6366f1',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Community Forums
+    CREATE TABLE IF NOT EXISTS community_forums (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      group_id UUID NOT NULL REFERENCES community_forum_groups(id) ON DELETE CASCADE,
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name VARCHAR(200) NOT NULL,
+      description TEXT,
+      icon VARCHAR(50),
+      is_announcement BOOLEAN NOT NULL DEFAULT false,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      post_count INTEGER NOT NULL DEFAULT 0,
+      last_post_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     -- Community Posts
     CREATE TABLE IF NOT EXISTS community_posts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      forum_id UUID REFERENCES community_forums(id) ON DELETE SET NULL,
       author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       media_urls JSONB DEFAULT '[]',
       is_pinned BOOLEAN NOT NULL DEFAULT false,
+      is_highlight BOOLEAN NOT NULL DEFAULT false,
+      saved_count INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_community_posts_org ON community_posts(org_id);
+    CREATE INDEX IF NOT EXISTS idx_community_posts_forum ON community_posts(forum_id);
 
     -- Community Comments
     CREATE TABLE IF NOT EXISTS community_comments (
@@ -205,6 +235,31 @@ async function initDatabase() {
       post_id UUID REFERENCES community_posts(id) ON DELETE CASCADE,
       comment_id UUID REFERENCES community_comments(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Community Bookmarks
+    CREATE TABLE IF NOT EXISTS community_bookmarks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Community Follows
+    CREATE TABLE IF NOT EXISTS community_follows (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      following_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Community Profiles
+    CREATE TABLE IF NOT EXISTS community_profiles (
+      user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      bio TEXT,
+      headline VARCHAR(200),
+      social_links JSONB DEFAULT '{}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     -- Tasks
