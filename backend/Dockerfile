@@ -33,7 +33,7 @@ RUN npm install --omit=dev
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/backend/dist ./backend/dist
-COPY backend/src/db/migrations ./backend/dist/db/migrations
+RUN mkdir -p ./backend/dist/db/migrations
 COPY backend/start.sh ./backend/
 
 RUN chmod +x ./backend/start.sh
