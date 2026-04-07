@@ -93,12 +93,20 @@ export function getNavigationItems(
         order: 1,
       },
       {
+        id: 'admin-integrations',
+        name: 'Integrationen',
+        icon: Settings,
+        path: '/admin/integrations',
+        group: 'admin',
+        order: 2,
+      },
+      {
         id: 'admin-settings',
         name: 'Einstellungen',
         icon: Settings,
         path: '/admin/settings',
         group: 'admin',
-        order: 2,
+        order: 3,
       }
     );
   }

@@ -369,6 +369,49 @@ async function initDatabase() {
       completed_at TIMESTAMPTZ,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- Webhooks
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name VARCHAR(200) NOT NULL,
+      url TEXT NOT NULL,
+      secret_encrypted TEXT NOT NULL,
+      events JSONB NOT NULL DEFAULT '[]',
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      last_triggered_at TIMESTAMPTZ,
+      fail_count VARCHAR(10) NOT NULL DEFAULT '0',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- API Keys
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name VARCHAR(200) NOT NULL,
+      key_hash TEXT NOT NULL,
+      key_prefix VARCHAR(12) NOT NULL,
+      scopes JSONB NOT NULL DEFAULT '[]',
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      last_used_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Webhook Deliveries
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      webhook_id UUID NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+      event VARCHAR(100) NOT NULL,
+      payload JSONB,
+      status_code VARCHAR(5),
+      response_body TEXT,
+      success BOOLEAN NOT NULL DEFAULT false,
+      delivered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   console.log('Database tables initialized successfully.');
