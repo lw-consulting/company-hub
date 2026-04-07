@@ -1,3 +1,4 @@
+import fp from 'fastify-plugin';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { verifyAccessToken } from '../lib/jwt.js';
 import { ROLE_HIERARCHY, type Role, type ModuleId, type JwtPayload } from '@company-hub/shared';
@@ -14,7 +15,7 @@ declare module 'fastify' {
   }
 }
 
-export async function authPlugin(fastify: FastifyInstance) {
+export const authPlugin = fp(async function (fastify: FastifyInstance) {
   // Authenticate: verify JWT and attach user to request
   fastify.decorate('authenticate', async function (request: FastifyRequest) {
     const authHeader = request.headers.authorization;
@@ -46,7 +47,6 @@ export async function authPlugin(fastify: FastifyInstance) {
   fastify.decorate('requireModule', function (moduleId: ModuleId) {
     return async function (request: FastifyRequest) {
       const userRole = request.user.role as Role;
-      // Admins and super_admins bypass module checks
       if (ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY.admin) {
         return;
       }
@@ -56,4 +56,4 @@ export async function authPlugin(fastify: FastifyInstance) {
       }
     };
   });
-}
+});
