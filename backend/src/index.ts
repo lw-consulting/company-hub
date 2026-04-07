@@ -12,6 +12,8 @@ import { notificationsRoutes } from './modules/notifications/notifications.route
 import { timeTrackingRoutes } from './modules/time-tracking/time-tracking.routes.js';
 import { leaveRoutes } from './modules/leave/leave.routes.js';
 import { calendarRoutes } from './modules/calendar/calendar.routes.js';
+import { communityRoutes } from './modules/community/community.routes.js';
+import { tasksRoutes } from './modules/tasks/tasks.routes.js';
 import { AppError } from './lib/errors.js';
 
 const fastify = Fastify({
@@ -77,6 +79,8 @@ await fastify.register(notificationsRoutes);
 await fastify.register(timeTrackingRoutes);
 await fastify.register(leaveRoutes);
 await fastify.register(calendarRoutes);
+await fastify.register(communityRoutes);
+await fastify.register(tasksRoutes);
 
 // Start server
 try {

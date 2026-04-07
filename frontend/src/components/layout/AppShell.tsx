@@ -11,6 +11,8 @@ const AdminOrgPage = lazy(() => import('../../modules/admin/OrganizationPage'));
 const TimeTrackingPage = lazy(() => import('../../modules/time-tracking/TimeTrackingPage'));
 const LeavePage = lazy(() => import('../../modules/leave/LeavePage'));
 const CalendarPage = lazy(() => import('../../modules/calendar/CalendarPage'));
+const CommunityPage = lazy(() => import('../../modules/community/CommunityPage'));
+const TasksPage = lazy(() => import('../../modules/tasks/TasksPage'));
 const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 
 const PAGE_TITLES: Record<string, string> = {
@@ -64,6 +66,10 @@ export default function AppShell() {
         return <LeavePage />;
       case '/calendar':
         return <CalendarPage />;
+      case '/community':
+        return <CommunityPage />;
+      case '/tasks':
+        return <TasksPage />;
       default:
         return <PlaceholderPage name={pageTitle} path={currentPath} />;
     }

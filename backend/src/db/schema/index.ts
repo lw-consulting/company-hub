@@ -5,3 +5,6 @@ export { notifications } from './notifications.js';
 export { timeEntries } from './time-tracking.js';
 export { leaveTypes, leaveRequests, publicHolidays } from './leave.js';
 export { calendarEvents, calendarEventAttendees } from './calendar.js';
+export { communityPosts, communityComments, communityLikes } from './community.js';
+export { tasks, taskComments } from './tasks.js';
+export { fileUploads } from './file-uploads.js';
