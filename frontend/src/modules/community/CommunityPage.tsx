@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
+import ReactionPicker from './components/ReactionPicker';
+import PollView from './components/PollView';
+import CreatePostModal from './components/CreatePostModal';
+import { getBackgroundStyle, getBackgroundEmoji } from './components/PostBackgrounds';
 import {
   Home, List, User, Search, Heart, MessageCircle, Bookmark, Send, Pin,
   Flame, Trash2, Image, Video, File, ChevronDown, ChevronUp, Plus, X, Edit,
@@ -9,11 +13,14 @@ import {
 
 // Types
 interface Post {
-  id: string; content: string; mediaUrls: string[]; isPinned: boolean; isHighlight: boolean;
+  id: string; content: string; mediaUrls: string[]; isPinned: boolean;
+  postType: string; background: string | null; tags: string[];
   createdAt: string; forumId: string | null; forumName: string | null;
   authorId: string; authorFirstName: string; authorLastName: string;
   authorAvatarUrl: string | null; authorPosition: string | null; authorDepartment: string | null;
-  likeCount: number; commentCount: number; isLiked?: boolean; isBookmarked?: boolean;
+  reactionCounts: Record<string, number>; totalReactions: number;
+  commentCount: number; myReaction?: string | null; isBookmarked?: boolean;
+  poll?: any;
 }
 interface Comment {
   id: string; content: string; parentId: string | null; createdAt: string;
@@ -88,10 +95,8 @@ export default function CommunityPage() {
 // ============== FEED ==============
 
 function FeedView({ forumId, onViewProfile }: { forumId: string | null; onViewProfile: (id: string) => void }) {
-  const qc = useQueryClient();
   const { user } = useAuthStore();
-  const [newPost, setNewPost] = useState('');
-  const [postForumId, setPostForumId] = useState<string | null>(forumId);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: feedData, isLoading } = useQuery({
     queryKey: ['community-feed', forumId],
@@ -104,54 +109,39 @@ function FeedView({ forumId, onViewProfile }: { forumId: string | null; onViewPr
   });
 
   const allForums = forums?.flatMap(g => g.forums) || [];
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => apiPost('/community/posts', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-feed'] }); setNewPost(''); },
-  });
-
   const posts = feedData?.data || [];
 
   return (
     <div className="space-y-4">
-      {/* Create Post */}
+      {/* Create Post Trigger */}
       <div className="card p-4">
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center cursor-pointer" onClick={() => setShowCreateModal(true)}>
           <Avatar url={user?.avatarUrl} firstName={user?.firstName || ''} lastName={user?.lastName || ''} />
-          <div className="flex-1">
-            <textarea className="input min-h-[60px] resize-none" placeholder="Erstelle einen Beitrag..."
-              value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-            <div className="flex items-center justify-between mt-3">
-              <div className="flex gap-2">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
-                  <Image size={14} /> Bilder
-                </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
-                  <Video size={14} /> Video
-                </button>
-                {allForums.length > 0 && (
-                  <select className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-slate-500"
-                    value={postForumId || ''} onChange={(e) => setPostForumId(e.target.value || null)}>
-                    <option value="">Kein Forum</option>
-                    {allForums.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
-                )}
-              </div>
-              <button onClick={() => createMutation.mutate({ content: newPost, forumId: postForumId })}
-                disabled={!newPost.trim()} className="btn-primary text-sm">
-                <Send size={14} /> Posten
-              </button>
-            </div>
+          <div className="flex-1 px-4 py-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl text-neutral-400 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors">
+            Erstelle einen Beitrag...
           </div>
+        </div>
+        <div className="flex gap-2 mt-3 ml-13 pl-[52px]">
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+            <Image size={14} /> Bilder
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+            <Video size={14} /> Video
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+            <File size={14} /> Datei
+          </button>
         </div>
       </div>
 
       {/* Filter */}
       {forumId && (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span>Forum: <strong className="text-slate-700 dark:text-slate-300">{allForums.find(f => f.id === forumId)?.name}</strong></span>
+        <div className="flex items-center gap-2 text-sm text-neutral-500">
+          <span>Forum: <strong className="text-neutral-700 dark:text-neutral-300">{allForums.find(f => f.id === forumId)?.name}</strong></span>
         </div>
       )}
+
+      {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} defaultForumId={forumId} />}
 
       {/* Posts */}
       {isLoading ? (
@@ -171,8 +161,8 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
 
-  const likeMut = useMutation({
-    mutationFn: () => apiPost(`/community/posts/${post.id}/like`),
+  const reactMut = useMutation({
+    mutationFn: (type: string) => apiPost(`/community/posts/${post.id}/react`, { type }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['community-feed'] }),
   });
   const bookmarkMut = useMutation({
@@ -214,32 +204,55 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
               </div>
             </div>
           </div>
-          {post.isHighlight && (
-            <span className="flex items-center gap-1 text-xs font-medium text-orange-500">
-              <Flame size={14} /> Highlight
-            </span>
-          )}
+          {/* Tags */}
+          <div className="flex items-center gap-1.5">
+            {(post.tags as string[])?.includes('highlight') && (
+              <span className="flex items-center gap-1 text-xs font-semibold text-orange-500">🔥 Highlight</span>
+            )}
+            {(post.tags as string[])?.includes('important') && (
+              <span className="flex items-center gap-1 text-xs font-semibold text-amber-500">⚡ Wichtig</span>
+            )}
+            {(post.tags as string[])?.includes('valuable') && (
+              <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500">💎 Wertvoll</span>
+            )}
+            {post.postType === 'announcement' && (
+              <span className="badge-accent text-[10px]">📢 Ankündigung</span>
+            )}
+          </div>
         </div>
 
-        {/* Content */}
-        <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap mb-4">{post.content}</p>
+        {/* Content with optional background */}
+        {post.background ? (
+          <div className="rounded-xl overflow-hidden min-h-[160px] flex items-center justify-center p-6 my-3 relative"
+            style={getBackgroundStyle(post.background) || undefined}>
+            {getBackgroundEmoji(post.background) && (
+              <span className="absolute top-2 right-2 text-3xl opacity-40">{getBackgroundEmoji(post.background)}</span>
+            )}
+            <p className="text-white text-lg font-bold text-center whitespace-pre-wrap">{post.content}</p>
+          </div>
+        ) : (
+          <p className="text-neutral-700 dark:text-neutral-200 whitespace-pre-wrap mb-3 leading-relaxed">{post.content}</p>
+        )}
+
+        {/* Poll */}
+        {post.poll && <PollView poll={post.poll} postId={post.id} />}
 
         {/* Reaction counts */}
-        {(post.likeCount > 0 || post.commentCount > 0) && (
-          <div className="flex items-center gap-4 text-xs text-slate-400 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
-            {post.likeCount > 0 && <span>{post.likeCount} Gefällt mir</span>}
+        {(post.totalReactions > 0 || post.commentCount > 0) && (
+          <div className="flex items-center gap-4 text-xs text-neutral-400 pb-3 mb-3 border-b border-neutral-100 dark:border-neutral-800">
+            {post.totalReactions > 0 && <span>{post.totalReactions} Reaktionen</span>}
             {post.commentCount > 0 && <span>{post.commentCount} Kommentare</span>}
           </div>
         )}
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          <button onClick={() => likeMut.mutate()}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              post.isLiked ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-            }`}>
-            <Heart size={16} fill={post.isLiked ? 'currentColor' : 'none'} /> Gefällt mir
-          </button>
+          <ReactionPicker
+            myReaction={post.myReaction || null}
+            reactionCounts={post.reactionCounts || {}}
+            totalReactions={post.totalReactions || 0}
+            onReact={(type) => reactMut.mutate(type)}
+          />
           <button onClick={() => setShowComments(!showComments)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
             <MessageCircle size={16} /> Kommentieren
