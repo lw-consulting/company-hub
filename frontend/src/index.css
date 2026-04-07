@@ -26,11 +26,15 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-primary-dark active:scale-[0.98] shadow-sm;
+    @apply btn text-white active:scale-[0.98] shadow-sm;
+    background-color: var(--color-primary);
+  }
+  .btn-primary:hover {
+    background-color: var(--color-primary-dark);
   }
 
   .btn-secondary {
-    @apply btn bg-white text-slate-700 border border-border hover:bg-surface-tertiary;
+    @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50;
   }
 
   .btn-danger {
@@ -42,8 +46,8 @@
   }
 
   .input {
-    @apply w-full px-3 py-2.5 rounded border border-border bg-white text-sm
-           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+    @apply w-full px-3 py-2.5 rounded border border-slate-200 bg-white text-sm
+           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500
            transition-all duration-200;
   }
 
@@ -52,7 +56,7 @@
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-card border border-border-light;
+    @apply bg-white rounded-lg shadow-card border border-slate-100;
   }
 
   .badge {
@@ -60,7 +64,7 @@
   }
 
   .badge-primary {
-    @apply badge bg-primary-50 text-primary-dark;
+    @apply badge bg-indigo-50 text-indigo-700;
   }
 
   .badge-success {
