@@ -2,13 +2,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy root package files
-COPY package.json package-lock.json* ./
+# Copy package files
+COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
 
-# Install all dependencies
-RUN npm install --workspace=@company-hub/shared --workspace=@company-hub/backend
+# Install dependencies (no lock file yet, using npm install)
+RUN npm install
 
 # Copy source
 COPY packages/shared ./packages/shared
@@ -24,15 +24,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
 
-RUN npm install --workspace=@company-hub/shared --workspace=@company-hub/backend --omit=dev
+RUN npm install --omit=dev
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/backend/dist ./backend/dist
-COPY backend/src/db/migrations ./backend/src/db/migrations
+COPY backend/src/db/migrations ./backend/dist/db/migrations
 COPY backend/start.sh ./backend/
 
 RUN chmod +x ./backend/start.sh

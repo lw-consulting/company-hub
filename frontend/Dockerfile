@@ -2,13 +2,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy root package files
-COPY package.json package-lock.json* ./
+# Copy package files
+COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY frontend/package.json ./frontend/
 
-# Install all dependencies
-RUN npm install --workspace=@company-hub/shared --workspace=@company-hub/frontend
+# Install dependencies
+RUN npm install
 
 # Copy source
 COPY packages/shared ./packages/shared
