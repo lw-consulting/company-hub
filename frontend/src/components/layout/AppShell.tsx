@@ -8,6 +8,9 @@ import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
 const DashboardPage = lazy(() => import('../../modules/dashboard/DashboardPage'));
 const AdminUsersPage = lazy(() => import('../../modules/admin/UsersPage'));
 const AdminOrgPage = lazy(() => import('../../modules/admin/OrganizationPage'));
+const TimeTrackingPage = lazy(() => import('../../modules/time-tracking/TimeTrackingPage'));
+const LeavePage = lazy(() => import('../../modules/leave/LeavePage'));
+const CalendarPage = lazy(() => import('../../modules/calendar/CalendarPage'));
 const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 
 const PAGE_TITLES: Record<string, string> = {
@@ -55,6 +58,12 @@ export default function AppShell() {
         return <AdminUsersPage />;
       case '/admin/organization':
         return <AdminOrgPage />;
+      case '/time-tracking':
+        return <TimeTrackingPage />;
+      case '/leave':
+        return <LeavePage />;
+      case '/calendar':
+        return <CalendarPage />;
       default:
         return <PlaceholderPage name={pageTitle} path={currentPath} />;
     }

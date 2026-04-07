@@ -4,6 +4,7 @@ import pg from 'pg';
 import { organizations } from './schema/organizations.js';
 import { users } from './schema/users.js';
 import { userModulePermissions } from './schema/user-module-permissions.js';
+import { leaveTypes } from './schema/leave.js';
 import { hashPassword } from '../lib/password.js';
 import { MODULES } from '@company-hub/shared';
 import { eq } from 'drizzle-orm';
@@ -63,6 +64,17 @@ async function seed() {
 
   await db.insert(userModulePermissions).values(modulePermissions);
   console.log(`Seed: Granted ${modulePermissions.length} modules to admin.`);
+
+  // Create default leave types
+  const defaultLeaveTypes = [
+    { orgId: org.id, name: 'Urlaub', color: '#10b981', deductsVacation: true, requiresApproval: true, sortOrder: 0 },
+    { orgId: org.id, name: 'Krankenstand', color: '#ef4444', deductsVacation: false, requiresApproval: false, sortOrder: 1 },
+    { orgId: org.id, name: 'Zeitausgleich', color: '#6366f1', deductsVacation: false, requiresApproval: true, sortOrder: 2 },
+    { orgId: org.id, name: 'Sonderurlaub', color: '#f59e0b', deductsVacation: false, requiresApproval: true, sortOrder: 3 },
+    { orgId: org.id, name: 'Homeoffice', color: '#3b82f6', deductsVacation: false, requiresApproval: false, sortOrder: 4 },
+  ];
+  await db.insert(leaveTypes).values(defaultLeaveTypes);
+  console.log(`Seed: Created ${defaultLeaveTypes.length} leave types.`);
 
   await pool.end();
   console.log('Seed completed.');

@@ -9,6 +9,9 @@ import { authRoutes } from './modules/auth/auth.routes.js';
 import { usersRoutes } from './modules/users/users.routes.js';
 import { organizationsRoutes } from './modules/organizations/organizations.routes.js';
 import { notificationsRoutes } from './modules/notifications/notifications.routes.js';
+import { timeTrackingRoutes } from './modules/time-tracking/time-tracking.routes.js';
+import { leaveRoutes } from './modules/leave/leave.routes.js';
+import { calendarRoutes } from './modules/calendar/calendar.routes.js';
 import { AppError } from './lib/errors.js';
 
 const fastify = Fastify({
@@ -71,6 +74,9 @@ await fastify.register(authRoutes);
 await fastify.register(usersRoutes);
 await fastify.register(organizationsRoutes);
 await fastify.register(notificationsRoutes);
+await fastify.register(timeTrackingRoutes);
+await fastify.register(leaveRoutes);
+await fastify.register(calendarRoutes);
 
 // Start server
 try {
