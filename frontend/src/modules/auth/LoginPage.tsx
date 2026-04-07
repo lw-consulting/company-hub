@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../stores/auth.store';
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, isLoading } = useAuthStore();
@@ -21,92 +21,94 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-secondary items-center justify-center p-12">
-        <div className="max-w-md text-center">
-          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-8">
-            <span className="text-white text-2xl font-bold">CH</span>
+      {/* Left — Branding */}
+      <div className="hidden lg:flex lg:w-[45%] bg-neutral-900 items-center justify-center p-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-20 left-20 w-96 h-96 rounded-full border border-white/20" />
+          <div className="absolute bottom-20 right-20 w-64 h-64 rounded-full border border-white/20" />
+        </div>
+        <div className="relative z-10 max-w-md">
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-10">
+            <span className="text-neutral-900 text-lg font-black">CH</span>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-4">Company Hub</h1>
-          <p className="text-slate-300 text-lg">
-            Ihr zentrales Unternehmensportal
+          <h1 className="text-4xl font-bold text-white leading-tight tracking-tight">
+            Ihr zentrales<br />Unternehmensportal
+          </h1>
+          <p className="text-neutral-400 text-lg mt-4 leading-relaxed">
+            Alles an einem Ort. Zeiterfassung, Kommunikation, Aufgaben und mehr.
           </p>
         </div>
       </div>
 
-      {/* Right side - Login form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md">
+      {/* Right — Login Form */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-surface-secondary dark:bg-neutral-950">
+        <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-white text-lg font-bold">CH</span>
+          <div className="lg:hidden mb-12">
+            <div className="w-10 h-10 bg-neutral-900 dark:bg-white rounded-xl flex items-center justify-center mb-4">
+              <span className="text-white dark:text-neutral-900 text-sm font-black">CH</span>
             </div>
-            <h1 className="text-xl font-bold text-slate-800">Company Hub</h1>
           </div>
 
-          <div className="card p-8">
-            <h2 className="text-2xl font-bold text-slate-800 mb-1">Willkommen</h2>
-            <p className="text-slate-500 mb-8">Melden Sie sich an, um fortzufahren</p>
+          <h2 className="text-display text-neutral-900 dark:text-white">Willkommen</h2>
+          <p className="text-muted mt-2 mb-10">Melden Sie sich an, um fortzufahren</p>
 
-            {error && (
-              <div className="flex items-center gap-2 p-3 mb-6 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                <AlertCircle size={16} />
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="p-4 mb-6 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="label">E-Mail</label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="label">E-Mail</label>
+              <input
+                type="email"
+                className="input"
+                placeholder="name@unternehmen.at"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="label">Passwort</label>
+              <div className="relative">
                 <input
-                  type="email"
-                  className="input"
-                  placeholder="name@unternehmen.at"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type={showPassword ? 'text' : 'password'}
+                  className="input pr-12"
+                  placeholder="Passwort eingeben"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoFocus
                 />
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+            </div>
 
-              <div>
-                <label className="label">Passwort</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="input pr-10"
-                    placeholder="Passwort eingeben"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="btn-primary w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <LogIn size={18} />
-                    Anmelden
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
+            <button
+              type="submit"
+              className="btn-primary w-full py-3.5 text-base mt-2"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  Anmelden
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          </form>
         </div>
       </div>
     </div>

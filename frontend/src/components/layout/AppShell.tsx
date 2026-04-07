@@ -92,7 +92,7 @@ export default function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen" style={{ backgroundColor: '#faf9f7' }}>
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div

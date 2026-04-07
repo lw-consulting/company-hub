@@ -1,102 +1,68 @@
 import { useAuthStore } from '../../stores/auth.store';
-import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '../../lib/api';
-import {
-  Users,
-  Clock,
-  Palmtree,
-  CheckSquare,
-  MessageSquare,
-  TrendingUp,
-} from 'lucide-react';
 import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
+import { Clock, Palmtree, CheckSquare, MessageSquare, TrendingUp, ArrowRight, Zap } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const isAdmin = ROLE_HIERARCHY[(user?.role as Role) || 'user'] >= ROLE_HIERARCHY.admin;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-6xl">
       {/* Welcome */}
-      <div className="card p-6">
-        <h2 className="text-xl font-semibold text-slate-800">
-          Willkommen, {user?.firstName}!
+      <div>
+        <h2 className="text-display text-neutral-900 dark:text-white">
+          Guten Tag, {user?.firstName}
         </h2>
-        <p className="text-slate-500 mt-1">
-          Hier ist Ihre Übersicht für heute.
-        </p>
+        <p className="text-muted mt-1 text-lg">Hier ist Ihre Übersicht für heute.</p>
       </div>
 
-      {/* Quick Stats */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={Clock}
-          label="Arbeitszeit heute"
-          value="--:--"
-          subtext="Noch nicht gestempelt"
-          color="primary"
-        />
-        <StatCard
-          icon={Palmtree}
-          label="Resturlaub"
-          value={`${user?.vacationDaysPerYear || 25} Tage`}
-          subtext="Verfügbar"
-          color="emerald"
-        />
-        <StatCard
-          icon={CheckSquare}
-          label="Offene Aufgaben"
-          value="--"
-          subtext="Modul kommt in Phase 3"
-          color="amber"
-        />
-        <StatCard
-          icon={MessageSquare}
-          label="Neue Beiträge"
-          value="--"
-          subtext="Modul kommt in Phase 3"
-          color="blue"
-        />
+        <StatCard icon={Clock} label="Arbeitszeit" value="--:--" sublabel="Heute" />
+        <StatCard icon={Palmtree} label="Resturlaub" value={`${user?.vacationDaysPerYear || 25}`} sublabel="Tage verfügbar" accent />
+        <StatCard icon={CheckSquare} label="Aufgaben" value="--" sublabel="Offen" />
+        <StatCard icon={MessageSquare} label="Community" value="--" sublabel="Neue Beiträge" />
       </div>
 
-      {/* Quick actions */}
+      {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-6">
-          <h3 className="font-semibold text-slate-800 mb-4">Schnellaktionen</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 mb-5">Schnellaktionen</h3>
           <div className="space-y-2">
-            <QuickAction label="Kommen stempeln" description="Zeiterfassung starten" icon={Clock} />
-            <QuickAction label="Urlaubsantrag stellen" description="Neuen Antrag erstellen" icon={Palmtree} />
-            <QuickAction label="Beitrag verfassen" description="In der Community posten" icon={MessageSquare} />
+            <QuickAction icon={Clock} label="Kommen stempeln" desc="Zeiterfassung starten" />
+            <QuickAction icon={Palmtree} label="Urlaubsantrag" desc="Neuen Antrag stellen" />
+            <QuickAction icon={MessageSquare} label="Beitrag erstellen" desc="In der Community posten" />
+            <QuickAction icon={Zap} label="KI-Assistent" desc="Chat mit dem KI-Assistenten" />
           </div>
         </div>
 
         <div className="card p-6">
-          <h3 className="font-semibold text-slate-800 mb-4">Letzte Aktivitäten</h3>
-          <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
-            Noch keine Aktivitäten vorhanden
+          <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 mb-5">Aktivitäten</h3>
+          <div className="flex items-center justify-center h-40 text-neutral-300 dark:text-neutral-600">
+            <p className="text-sm">Noch keine Aktivitäten</p>
           </div>
         </div>
       </div>
 
-      {/* Admin stats */}
+      {/* Admin section */}
       {isAdmin && (
         <div className="card p-6">
-          <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <TrendingUp size={18} className="text-primary" />
-            Admin-Übersicht
-          </h3>
+          <div className="flex items-center gap-2 mb-5">
+            <TrendingUp size={18} className="text-neutral-400" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Übersicht</h3>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-surface-secondary rounded-lg p-4">
-              <div className="text-sm text-slate-500">Benutzer gesamt</div>
-              <div className="text-2xl font-bold text-slate-800 mt-1">--</div>
+            <div className="bg-neutral-50 dark:bg-neutral-800 rounded-xl p-5">
+              <div className="text-3xl font-bold text-neutral-900 dark:text-white">--</div>
+              <div className="text-sm text-neutral-400 mt-1">Benutzer gesamt</div>
             </div>
-            <div className="bg-surface-secondary rounded-lg p-4">
-              <div className="text-sm text-slate-500">Aktive heute</div>
-              <div className="text-2xl font-bold text-slate-800 mt-1">--</div>
+            <div className="bg-neutral-50 dark:bg-neutral-800 rounded-xl p-5">
+              <div className="text-3xl font-bold text-neutral-900 dark:text-white">--</div>
+              <div className="text-sm text-neutral-400 mt-1">Aktive heute</div>
             </div>
-            <div className="bg-surface-secondary rounded-lg p-4">
-              <div className="text-sm text-slate-500">Offene Anträge</div>
-              <div className="text-2xl font-bold text-slate-800 mt-1">--</div>
+            <div className="bg-neutral-50 dark:bg-neutral-800 rounded-xl p-5">
+              <div className="text-3xl font-bold text-neutral-900 dark:text-white">--</div>
+              <div className="text-sm text-neutral-400 mt-1">Offene Anträge</div>
             </div>
           </div>
         </div>
@@ -105,58 +71,35 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  subtext,
-  color,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-  subtext: string;
-  color: string;
+function StatCard({ icon: Icon, label, value, sublabel, accent }: {
+  icon: any; label: string; value: string; sublabel: string; accent?: boolean;
 }) {
-  const colors: Record<string, string> = {
-    primary: 'bg-primary-50 text-primary',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    blue: 'bg-blue-50 text-blue-600',
-  };
-
   return (
     <div className="card p-5">
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colors[color]}`}>
-          <Icon size={20} />
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent ? '' : 'bg-neutral-50 dark:bg-neutral-800'}`}
+          style={accent ? { backgroundColor: 'var(--color-accent)', opacity: 0.15 } : undefined}>
+          <Icon size={20} className="text-neutral-500" style={accent ? { color: 'var(--color-accent)' } : undefined} strokeWidth={1.5} />
         </div>
-        <span className="text-sm text-slate-500">{label}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{label}</span>
       </div>
-      <div className="text-2xl font-bold text-slate-800">{value}</div>
-      <div className="text-xs text-slate-400 mt-1">{subtext}</div>
+      <div className="text-3xl font-bold text-neutral-900 dark:text-white tracking-tight">{value}</div>
+      <div className="text-sm text-neutral-400 mt-1">{sublabel}</div>
     </div>
   );
 }
 
-function QuickAction({
-  label,
-  description,
-  icon: Icon,
-}: {
-  label: string;
-  description: string;
-  icon: any;
-}) {
+function QuickAction({ icon: Icon, label, desc }: { icon: any; label: string; desc: string }) {
   return (
-    <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-surface-secondary transition-colors text-left">
-      <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center text-primary flex-shrink-0">
-        <Icon size={18} />
+    <button className="w-full flex items-center gap-4 p-3.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors text-left group">
+      <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0 group-hover:bg-neutral-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-neutral-900 transition-colors">
+        <Icon size={18} strokeWidth={1.5} />
       </div>
-      <div>
-        <div className="text-sm font-medium text-slate-700">{label}</div>
-        <div className="text-xs text-slate-400">{description}</div>
+      <div className="flex-1">
+        <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{label}</div>
+        <div className="text-xs text-neutral-400">{desc}</div>
       </div>
+      <ArrowRight size={16} className="text-neutral-300 group-hover:text-neutral-500 transition-colors" />
     </button>
   );
 }

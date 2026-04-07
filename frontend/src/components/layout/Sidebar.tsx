@@ -11,10 +11,10 @@ interface SidebarProps {
 }
 
 const GROUP_LABELS: Record<string, string> = {
-  main: 'Allgemein',
-  hr: 'HR & Zeit',
-  learn: 'Lernen & KI',
-  admin: 'Administration',
+  main: 'ALLGEMEIN',
+  hr: 'HR & ZEIT',
+  learn: 'LERNEN & KI',
+  admin: 'VERWALTUNG',
 };
 
 export default function Sidebar({ currentPath, onNavigate, collapsed, onToggleCollapse }: SidebarProps) {
@@ -22,75 +22,57 @@ export default function Sidebar({ currentPath, onNavigate, collapsed, onToggleCo
   if (!user) return null;
 
   const navItems = getNavigationItems(modules, user.role as Role);
-
-  // Group items
   const groups = new Map<string, NavItem[]>();
   for (const item of navItems) {
     const existing = groups.get(item.group) || [];
     existing.push(item);
-    groups.set(item.group, existing);
+    groups.set(item.group, existing.sort((a, b) => a.order - b.order));
   }
-
-  // Sort within groups
-  for (const [, items] of groups) {
-    items.sort((a, b) => a.order - b.order);
-  }
-
   const groupOrder = ['main', 'hr', 'learn', 'admin'];
 
   return (
-    <aside
-      className={`fixed left-0 top-0 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-30 flex flex-col transition-all duration-300 ${
-        collapsed ? 'w-16' : 'w-64'
-      }`}
-    >
+    <aside className={`fixed left-0 top-0 h-full bg-white dark:bg-neutral-950 border-r border-neutral-100 dark:border-neutral-800 z-30 flex flex-col transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-[260px]'}`}>
       {/* Logo */}
-      <div className="h-16 flex items-center px-4 border-b border-border-light flex-shrink-0">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-sm font-bold">CH</span>
+      <div className="h-16 flex items-center px-5 flex-shrink-0">
+        <div className="w-8 h-8 bg-neutral-900 dark:bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+          <span className="text-white dark:text-neutral-900 text-xs font-black">CH</span>
         </div>
         {!collapsed && (
-          <span className="ml-3 font-semibold text-slate-800 truncate">Company Hub</span>
+          <span className="ml-3 font-bold text-neutral-900 dark:text-white text-sm tracking-tight">Company Hub</span>
         )}
-        <button
-          onClick={onToggleCollapse}
-          className="ml-auto text-slate-400 hover:text-slate-600 p-1"
-        >
-          <ChevronLeft size={18} className={`transition-transform ${collapsed ? 'rotate-180' : ''}`} />
+        <button onClick={onToggleCollapse} className="ml-auto text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-400">
+          <ChevronLeft size={16} className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2">
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-6 px-3">
         {groupOrder.map((group) => {
           const items = groups.get(group);
           if (!items?.length) return null;
-
           return (
-            <div key={group} className="mb-4">
+            <div key={group} className="mb-6">
               {!collapsed && (
-                <div className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-400 dark:text-neutral-600">
                   {GROUP_LABELS[group]}
                 </div>
               )}
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const Icon = item.icon;
-                  const isActive = currentPath === item.path ||
-                    (item.path !== '/' && currentPath.startsWith(item.path));
-
+                  const isActive = currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
                   return (
                     <button
                       key={item.id}
                       onClick={() => onNavigate(item.path)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
                         isActive
-                          ? 'bg-primary-50 text-primary-dark'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                          ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                          : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900'
                       }`}
                       title={collapsed ? item.name : undefined}
                     >
-                      <Icon size={20} className="flex-shrink-0" />
+                      <Icon size={18} className="flex-shrink-0" strokeWidth={isActive ? 2.5 : 1.5} />
                       {!collapsed && <span className="truncate">{item.name}</span>}
                     </button>
                   );
@@ -101,14 +83,14 @@ export default function Sidebar({ currentPath, onNavigate, collapsed, onToggleCo
         })}
       </nav>
 
-      {/* User/Logout */}
-      <div className="border-t border-border-light p-2">
+      {/* Logout */}
+      <div className="p-3 border-t border-neutral-100 dark:border-neutral-800">
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
           title="Abmelden"
         >
-          <LogOut size={20} className="flex-shrink-0" />
+          <LogOut size={18} className="flex-shrink-0" strokeWidth={1.5} />
           {!collapsed && <span>Abmelden</span>}
         </button>
       </div>
