@@ -16,6 +16,8 @@ const TasksPage = lazy(() => import('../../modules/tasks/TasksPage'));
 const AiAssistantsPage = lazy(() => import('../../modules/ai-assistants/AiAssistantsPage'));
 const CoursesPage = lazy(() => import('../../modules/courses/CoursesPage'));
 const IntegrationsPage = lazy(() => import('../../modules/admin/IntegrationsPage'));
+const ProfilePage = lazy(() => import('../../modules/profile/ProfilePage'));
+const CrmPage = lazy(() => import('../../modules/crm/CrmPage'));
 const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 
 const PAGE_TITLES: Record<string, string> = {
@@ -80,13 +82,17 @@ export default function AppShell() {
         return <CoursesPage />;
       case '/admin/integrations':
         return <IntegrationsPage />;
+      case '/profile':
+        return <ProfilePage />;
+      case '/crm':
+        return <CrmPage />;
       default:
         return <PlaceholderPage name={pageTitle} path={currentPath} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-surface-secondary">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div

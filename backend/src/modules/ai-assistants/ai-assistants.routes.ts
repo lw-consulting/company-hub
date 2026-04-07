@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import * as aiService from './ai-assistants.service.js';
+import { createAdapter, type ChatMessage } from './adapters/index.js';
 
 export async function aiAssistantsRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
@@ -86,18 +87,59 @@ export async function aiAssistantsRoutes(fastify: FastifyInstance) {
 
   fastify.post('/api/ai/chat/sessions/:id/messages', { preHandler: [modGuard] }, async (req, reply) => {
     const { content } = req.body as any;
+    const sessionId = (req.params as any).id;
+
     // Save user message
-    await aiService.addMessage((req.params as any).id, 'user', content);
+    await aiService.addMessage(sessionId, 'user', content);
 
-    // TODO: Call LLM provider and stream response
-    // For now, return a placeholder response
-    const assistantMsg = await aiService.addMessage(
-      (req.params as any).id,
-      'assistant',
-      'KI-Antwort wird in einer zukünftigen Version mit dem LLM-Provider verbunden. Bitte konfigurieren Sie einen Provider unter Administration → KI-Assistenten.'
-    );
+    // Get session to find assistant
+    const sessionMessages = await aiService.getSessionMessages(sessionId);
+    const sessions = await aiService.getMySessions(req.user.sub, '');
+    // Find the session to get assistantId
+    const { db } = await import('../../config/database.js');
+    const { aiChatSessions } = await import('../../db/schema/ai-assistants.js');
+    const { eq } = await import('drizzle-orm');
+    const [session] = await db.select().from(aiChatSessions).where(eq(aiChatSessions.id, sessionId)).limit(1);
 
-    return reply.send({ data: assistantMsg, statusCode: 200 });
+    if (!session) {
+      return reply.status(404).send({ error: 'NOT_FOUND', message: 'Session nicht gefunden' });
+    }
+
+    try {
+      // Get assistant config
+      const assistant = await aiService.getAssistantById(session.assistantId);
+      const { type, apiKey } = await aiService.getProviderApiKey(assistant.providerId);
+
+      // Build message history
+      const chatMessages: ChatMessage[] = [];
+      if (assistant.systemPrompt) {
+        chatMessages.push({ role: 'system', content: assistant.systemPrompt });
+      }
+      for (const msg of sessionMessages) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          chatMessages.push({ role: msg.role as 'user' | 'assistant', content: msg.content });
+        }
+      }
+
+      // Call LLM
+      const adapter = createAdapter(type, apiKey);
+      const response = await adapter.chat(chatMessages, {
+        model: assistant.model,
+        temperature: parseFloat(String(assistant.temperature || '0.7')),
+        maxTokens: assistant.maxTokens || 2048,
+      });
+
+      const assistantMsg = await aiService.addMessage(sessionId, 'assistant', response);
+      return reply.send({ data: assistantMsg, statusCode: 200 });
+
+    } catch (err: any) {
+      // If LLM fails, still save an error message
+      const errorMsg = await aiService.addMessage(
+        sessionId, 'assistant',
+        `Fehler bei der KI-Antwort: ${err.message || 'Unbekannter Fehler'}. Bitte überprüfen Sie die Provider-Konfiguration.`
+      );
+      return reply.send({ data: errorMsg, statusCode: 200 });
+    }
   });
 
   fastify.delete('/api/ai/chat/sessions/:id', { preHandler: [modGuard] }, async (req, reply) => {

@@ -11,3 +11,4 @@ export { fileUploads } from './file-uploads.js';
 export { aiProviders, aiAssistants, aiAssistantAssignments, aiChatSessions, aiChatMessages } from './ai-assistants.js';
 export { courses, courseModules, courseLessons, courseEnrollments, lessonProgress } from './courses.js';
 export { webhooks, apiKeys, webhookDeliveries } from './integrations.js';
+export { crmContacts, crmCompanies, crmDeals, crmActivities } from './crm.js';

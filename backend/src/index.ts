@@ -17,6 +17,7 @@ import { tasksRoutes } from './modules/tasks/tasks.routes.js';
 import { aiAssistantsRoutes } from './modules/ai-assistants/ai-assistants.routes.js';
 import { coursesRoutes } from './modules/courses/courses.routes.js';
 import { integrationsRoutes } from './modules/integrations/integrations.routes.js';
+import { crmRoutes } from './modules/crm/crm.routes.js';
 import { AppError } from './lib/errors.js';
 
 const fastify = Fastify({
@@ -87,6 +88,7 @@ await fastify.register(tasksRoutes);
 await fastify.register(aiAssistantsRoutes);
 await fastify.register(coursesRoutes);
 await fastify.register(integrationsRoutes);
+await fastify.register(crmRoutes);
 
 // Start server
 try {

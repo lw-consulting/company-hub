@@ -12,6 +12,8 @@ import {
   Bell,
   UserCog,
   Building2,
+  Briefcase,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -99,6 +101,22 @@ export function getNavigationItems(
         path: '/admin/integrations',
         group: 'admin',
         order: 2,
+      },
+      {
+        id: 'crm',
+        name: 'CRM',
+        icon: Briefcase,
+        path: '/crm',
+        group: 'admin',
+        order: 3,
+      },
+      {
+        id: 'profile',
+        name: 'Profil',
+        icon: User,
+        path: '/profile',
+        group: 'admin',
+        order: 10,
       },
       {
         id: 'admin-settings',

@@ -40,7 +40,7 @@ export default function Sidebar({ currentPath, onNavigate, collapsed, onToggleCo
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full bg-white border-r border-border z-30 flex flex-col transition-all duration-300 ${
+      className={`fixed left-0 top-0 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-30 flex flex-col transition-all duration-300 ${
         collapsed ? 'w-16' : 'w-64'
       }`}
     >

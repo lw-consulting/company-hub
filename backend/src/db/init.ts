@@ -412,6 +412,76 @@ async function initDatabase() {
       success BOOLEAN NOT NULL DEFAULT false,
       delivered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- CRM Contacts
+    CREATE TABLE IF NOT EXISTS crm_contacts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      first_name VARCHAR(100) NOT NULL,
+      last_name VARCHAR(100) NOT NULL,
+      email VARCHAR(255),
+      phone VARCHAR(50),
+      position VARCHAR(100),
+      company_id UUID,
+      notes TEXT,
+      tags JSONB DEFAULT '[]',
+      owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- CRM Companies
+    CREATE TABLE IF NOT EXISTS crm_companies (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name VARCHAR(300) NOT NULL,
+      website VARCHAR(500),
+      industry VARCHAR(100),
+      size VARCHAR(50),
+      address TEXT,
+      phone VARCHAR(50),
+      notes TEXT,
+      owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- Add FK after both tables exist
+    ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES crm_companies(id) ON DELETE SET NULL;
+
+    -- CRM Deals
+    CREATE TABLE IF NOT EXISTS crm_deals (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      title VARCHAR(300) NOT NULL,
+      value NUMERIC(12,2),
+      currency VARCHAR(3) DEFAULT 'EUR',
+      stage VARCHAR(50) NOT NULL DEFAULT 'lead',
+      probability INTEGER DEFAULT 0,
+      contact_id UUID REFERENCES crm_contacts(id) ON DELETE SET NULL,
+      company_id UUID REFERENCES crm_companies(id) ON DELETE SET NULL,
+      owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      expected_close_date TIMESTAMPTZ,
+      closed_at TIMESTAMPTZ,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    -- CRM Activities
+    CREATE TABLE IF NOT EXISTS crm_activities (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      type VARCHAR(30) NOT NULL,
+      title VARCHAR(300) NOT NULL,
+      description TEXT,
+      contact_id UUID REFERENCES crm_contacts(id) ON DELETE CASCADE,
+      deal_id UUID REFERENCES crm_deals(id) ON DELETE CASCADE,
+      company_id UUID REFERENCES crm_companies(id) ON DELETE CASCADE,
+      created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      activity_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   console.log('Database tables initialized successfully.');
