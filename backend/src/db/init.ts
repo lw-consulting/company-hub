@@ -566,6 +566,27 @@ async function initDatabase() {
     );
   `);
 
+  // === Migrations: Add columns to existing tables ===
+  console.log('Running migrations...');
+
+  const migrations = [
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS post_type VARCHAR(20) NOT NULL DEFAULT 'post'`,
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS background VARCHAR(50)`,
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'`,
+    // Drop old columns that no longer exist (ignore errors)
+  ];
+
+  for (const sql of migrations) {
+    try {
+      await pool.query(sql);
+    } catch (e: any) {
+      // Ignore "already exists" errors
+      if (!e.message?.includes('already exists')) {
+        console.log('Migration note:', e.message);
+      }
+    }
+  }
+
   console.log('Database tables initialized successfully.');
   await pool.end();
 }

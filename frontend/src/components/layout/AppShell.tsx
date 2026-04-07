@@ -18,6 +18,7 @@ const CoursesPage = lazy(() => import('../../modules/courses/CoursesPage'));
 const IntegrationsPage = lazy(() => import('../../modules/admin/IntegrationsPage'));
 const ProfilePage = lazy(() => import('../../modules/profile/ProfilePage'));
 const CrmPage = lazy(() => import('../../modules/crm/CrmPage'));
+const SettingsPage = lazy(() => import('../../modules/admin/SettingsPage'));
 const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 
 const PAGE_TITLES: Record<string, string> = {
@@ -86,6 +87,8 @@ export default function AppShell() {
         return <ProfilePage />;
       case '/crm':
         return <CrmPage />;
+      case '/admin/settings':
+        return <SettingsPage />;
       default:
         return <PlaceholderPage name={pageTitle} path={currentPath} />;
     }
