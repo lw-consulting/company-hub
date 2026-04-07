@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost } from '../../lib/api';
 import { Clock, Play, Square, Coffee, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -212,7 +212,7 @@ export default function TimeTrackingPage() {
                     <td className="px-6 py-3 text-sm text-slate-600">
                       {entry.breakMinutes} min
                       {entry.autoBreakApplied && (
-                        <Coffee size={14} className="inline ml-1 text-amber-500" title="Automatische Pause" />
+                        <span title="Automatische Pause"><Coffee size={14} className="inline ml-1 text-amber-500" /></span>
                       )}
                     </td>
                     <td className="px-6 py-3 text-sm font-medium text-slate-700">
@@ -234,13 +234,13 @@ export default function TimeTrackingPage() {
 
 /** Live counter showing elapsed time since clock-in */
 function LiveTimer({ clockIn }: { clockIn: string }) {
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   // Re-render every minute
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(interval);
-  });
+  }, []);
 
   const elapsed = Math.floor((Date.now() - new Date(clockIn).getTime()) / 60000);
   return (
