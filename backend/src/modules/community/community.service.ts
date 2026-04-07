@@ -77,23 +77,33 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
 
   // Get forum names + counts for each post
   const postsWithMeta = await Promise.all(posts.map(async (post) => {
-    const [likeCount] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(communityReactions).where(eq(communityReactions.postId, post.id));
-    const [commentCount] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(communityComments).where(eq(communityComments.postId, post.id));
+    let reactionCount = 0, commentCountVal = 0;
+    try {
+      const [rc] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(communityReactions).where(eq(communityReactions.postId, post.id));
+      reactionCount = rc?.count || 0;
+    } catch {}
+    try {
+      const [cc] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(communityComments).where(eq(communityComments.postId, post.id));
+      commentCountVal = cc?.count || 0;
+    } catch {}
 
     let forumName = null;
-    if (post.forumId) {
-      const [forum] = await db.select({ name: communityForums.name })
-        .from(communityForums).where(eq(communityForums.id, post.forumId)).limit(1);
-      forumName = forum?.name || null;
-    }
+    try {
+      if (post.forumId) {
+        const [forum] = await db.select({ name: communityForums.name })
+          .from(communityForums).where(eq(communityForums.id, post.forumId)).limit(1);
+        forumName = forum?.name || null;
+      }
+    } catch {}
 
     return {
       ...post,
       forumName,
-      likeCount: likeCount?.count || 0,
-      commentCount: commentCount?.count || 0,
+      reactionCounts: {} as Record<string, number>,
+      totalReactions: reactionCount,
+      commentCount: commentCountVal,
     };
   }));
 
@@ -349,26 +359,44 @@ export async function getUserProfile(userId: string, currentUserId?: string) {
   }).from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw new NotFoundError('Benutzer nicht gefunden');
 
-  const [profile] = await db.select().from(communityProfiles).where(eq(communityProfiles.userId, userId)).limit(1);
-  const [postCount] = await db.select({ count: sql<number>`count(*)::int` }).from(communityPosts).where(eq(communityPosts.authorId, userId));
-  const [followerCount] = await db.select({ count: sql<number>`count(*)::int` }).from(communityFollows).where(eq(communityFollows.followingId, userId));
-  const [followingCount] = await db.select({ count: sql<number>`count(*)::int` }).from(communityFollows).where(eq(communityFollows.followerId, userId));
-
+  // These may fail if tables don't exist yet — graceful fallback
+  let profile: any = null;
+  let postCountVal = 0, followerCountVal = 0, followingCountVal = 0;
   let isFollowing = false;
-  if (currentUserId && currentUserId !== userId) {
-    const [f] = await db.select({ id: communityFollows.id }).from(communityFollows)
-      .where(and(eq(communityFollows.followerId, currentUserId), eq(communityFollows.followingId, userId))).limit(1);
-    isFollowing = !!f;
-  }
+
+  try {
+    const [p] = await db.select().from(communityProfiles).where(eq(communityProfiles.userId, userId)).limit(1);
+    profile = p;
+  } catch {}
+
+  try {
+    const [pc] = await db.select({ count: sql<number>`count(*)::int` }).from(communityPosts).where(eq(communityPosts.authorId, userId));
+    postCountVal = pc?.count || 0;
+  } catch {}
+
+  try {
+    const [fc] = await db.select({ count: sql<number>`count(*)::int` }).from(communityFollows).where(eq(communityFollows.followingId, userId));
+    followerCountVal = fc?.count || 0;
+    const [fgc] = await db.select({ count: sql<number>`count(*)::int` }).from(communityFollows).where(eq(communityFollows.followerId, userId));
+    followingCountVal = fgc?.count || 0;
+  } catch {}
+
+  try {
+    if (currentUserId && currentUserId !== userId) {
+      const [f] = await db.select({ id: communityFollows.id }).from(communityFollows)
+        .where(and(eq(communityFollows.followerId, currentUserId), eq(communityFollows.followingId, userId))).limit(1);
+      isFollowing = !!f;
+    }
+  } catch {}
 
   return {
     ...user,
     bio: profile?.bio || null,
     headline: profile?.headline || null,
     socialLinks: profile?.socialLinks || {},
-    postCount: postCount?.count || 0,
-    followerCount: followerCount?.count || 0,
-    followingCount: followingCount?.count || 0,
+    postCount: postCountVal,
+    followerCount: followerCountVal,
+    followingCount: followingCountVal,
     isFollowing,
   };
 }
