@@ -566,21 +566,31 @@ async function initDatabase() {
     );
   `);
 
-  // === Migrations: Add columns to existing tables ===
+  // === Migrations: Ensure all new tables/columns exist ===
   console.log('Running migrations...');
 
-  const migrations = [
+  const extraStatements = [
+    // Columns on existing tables
     `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS post_type VARCHAR(20) NOT NULL DEFAULT 'post'`,
     `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS background VARCHAR(50)`,
     `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'`,
-    // Drop old columns that no longer exist (ignore errors)
+    // Tables that may not have been created if the main block failed
+    `CREATE TABLE IF NOT EXISTS community_forum_groups (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, name VARCHAR(200) NOT NULL, icon VARCHAR(50), color VARCHAR(7) DEFAULT '#6366f1', sort_order INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS community_forums (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), group_id UUID NOT NULL REFERENCES community_forum_groups(id) ON DELETE CASCADE, org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, name VARCHAR(200) NOT NULL, description TEXT, icon VARCHAR(50), is_announcement BOOLEAN NOT NULL DEFAULT false, sort_order INTEGER NOT NULL DEFAULT 0, post_count INTEGER NOT NULL DEFAULT 0, last_post_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS forum_id UUID REFERENCES community_forums(id) ON DELETE SET NULL`,
+    `CREATE TABLE IF NOT EXISTS community_reactions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, post_id UUID REFERENCES community_posts(id) ON DELETE CASCADE, comment_id UUID REFERENCES community_comments(id) ON DELETE CASCADE, reaction_type VARCHAR(20) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS community_polls (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE, question TEXT NOT NULL, multiple_choice BOOLEAN NOT NULL DEFAULT false, ends_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS community_poll_options (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), poll_id UUID NOT NULL REFERENCES community_polls(id) ON DELETE CASCADE, text VARCHAR(300) NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE TABLE IF NOT EXISTS community_poll_votes (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), option_id UUID NOT NULL REFERENCES community_poll_options(id) ON DELETE CASCADE, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS community_bookmarks (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS community_follows (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, following_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS community_profiles (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, bio TEXT, headline VARCHAR(200), social_links JSONB DEFAULT '{}', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
   ];
 
-  for (const sql of migrations) {
+  for (const stmt of extraStatements) {
     try {
-      await pool.query(sql);
+      await pool.query(stmt);
     } catch (e: any) {
-      // Ignore "already exists" errors
       if (!e.message?.includes('already exists')) {
         console.log('Migration note:', e.message);
       }

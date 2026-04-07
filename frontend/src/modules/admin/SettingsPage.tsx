@@ -115,10 +115,12 @@ function ForumsManager() {
 function CreateGroupModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: '', color: '#1a1a1a' });
+  const [error, setError] = useState('');
 
   const createMut = useMutation({
     mutationFn: (data: any) => apiPost('/community/forum-groups', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['community-forums'] }); onClose(); },
+    onError: (err: any) => { setError(err?.message || JSON.stringify(err) || 'Fehler beim Erstellen'); console.error('Create group error:', err); },
   });
 
   return (
@@ -128,7 +130,8 @@ function CreateGroupModal({ onClose }: { onClose: () => void }) {
           <h3 className="font-bold text-neutral-800 dark:text-white">Neue Foren-Gruppe</h3>
           <button onClick={onClose}><X size={18} className="text-neutral-400" /></button>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); createMut.mutate(form); }} className="space-y-4">
+        {error && <div className="p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 text-sm">{error}</div>}
+        <form onSubmit={(e) => { e.preventDefault(); setError(''); createMut.mutate(form); }} className="space-y-4">
           <div>
             <label className="label">Name</label>
             <input className="input" required placeholder="z.B. Allgemein" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
