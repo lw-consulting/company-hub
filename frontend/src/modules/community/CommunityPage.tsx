@@ -174,11 +174,69 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
 
   const reactMut = useMutation({
     mutationFn: (type: string) => apiPost(`/community/posts/${post.id}/react`, { type }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['community-feed'] }),
+    onMutate: async (type: string) => {
+      await qc.cancelQueries({ queryKey: ['community-feed'] });
+      const snapshots = qc.getQueriesData<{ data: Post[] }>({ queryKey: ['community-feed'] });
+      qc.setQueriesData<{ data: Post[] }>({ queryKey: ['community-feed'] }, (old) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((p) => {
+            if (p.id !== post.id) return p;
+            const counts = { ...(p.reactionCounts || {}) };
+            const prev = p.myReaction || null;
+            // Toggle off if same reaction
+            if (prev === type) {
+              counts[type] = Math.max(0, (counts[type] || 1) - 1);
+              if (counts[type] === 0) delete counts[type];
+              return {
+                ...p,
+                reactionCounts: counts,
+                totalReactions: Math.max(0, (p.totalReactions || 1) - 1),
+                myReaction: null,
+              };
+            }
+            // Switching from one reaction to another
+            if (prev) {
+              counts[prev] = Math.max(0, (counts[prev] || 1) - 1);
+              if (counts[prev] === 0) delete counts[prev];
+              counts[type] = (counts[type] || 0) + 1;
+              return { ...p, reactionCounts: counts, myReaction: type };
+            }
+            // New reaction
+            counts[type] = (counts[type] || 0) + 1;
+            return {
+              ...p,
+              reactionCounts: counts,
+              totalReactions: (p.totalReactions || 0) + 1,
+              myReaction: type,
+            };
+          }),
+        };
+      });
+      return { snapshots };
+    },
+    onError: (_err, _type, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
   });
   const bookmarkMut = useMutation({
     mutationFn: () => apiPost(`/community/posts/${post.id}/bookmark`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['community-feed'] }),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ['community-feed'] });
+      const snapshots = qc.getQueriesData<{ data: Post[] }>({ queryKey: ['community-feed'] });
+      qc.setQueriesData<{ data: Post[] }>({ queryKey: ['community-feed'] }, (old) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((p) => p.id === post.id ? { ...p, isBookmarked: !p.isBookmarked } : p),
+        };
+      });
+      return { snapshots };
+    },
+    onError: (_err, _v, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
   });
   const deleteMut = useMutation({
     mutationFn: () => apiDelete(`/community/posts/${post.id}`),
@@ -193,7 +251,18 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
 
   const commentMut = useMutation({
     mutationFn: (content: string) => apiPost(`/community/posts/${post.id}/comments`, { content }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['post-comments', post.id] }); qc.invalidateQueries({ queryKey: ['community-feed'] }); setCommentText(''); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['post-comments', post.id] });
+      // Increment commentCount locally instead of full feed refetch
+      qc.setQueriesData<{ data: Post[] }>({ queryKey: ['community-feed'] }, (old) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((p) => p.id === post.id ? { ...p, commentCount: (p.commentCount || 0) + 1 } : p),
+        };
+      });
+      setCommentText('');
+    },
   });
 
   return (

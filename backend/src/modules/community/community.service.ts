@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, isNull } from 'drizzle-orm';
+import { eq, and, desc, sql, isNull, inArray } from 'drizzle-orm';
 import { db } from '../../config/database.js';
 import { communityForumGroups, communityForums, communityPosts, communityComments, communityReactions, communityPolls, communityPollOptions, communityPollVotes, communityBookmarks, communityFollows, communityProfiles } from '../../db/schema/community.js';
 import { users } from '../../db/schema/users.js';
@@ -76,111 +76,186 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
     .limit(pageSize)
     .offset(offset);
 
-  // Hydrate each post with full meta (poll, reactions, my reaction, latest comment, ...)
-  const postsWithMeta = await Promise.all(posts.map(async (post) => {
-    // Reaction counts grouped by type + total
-    let reactionCounts: Record<string, number> = {};
-    let totalReactions = 0;
-    try {
-      const reactions = await db.select({
-        reactionType: communityReactions.reactionType,
-        count: sql<number>`count(*)::int`,
-      }).from(communityReactions).where(eq(communityReactions.postId, post.id))
-        .groupBy(communityReactions.reactionType);
-      for (const r of reactions) {
-        reactionCounts[r.reactionType] = r.count;
-        totalReactions += r.count;
-      }
-    } catch {}
+  const postIds = posts.map((p) => p.id);
+  const forumIds = Array.from(new Set(posts.map((p) => p.forumId).filter((id): id is string => !!id)));
 
-    // Comment count
-    let commentCountVal = 0;
-    try {
-      const [cc] = await db.select({ count: sql<number>`count(*)::int` })
-        .from(communityComments).where(eq(communityComments.postId, post.id));
-      commentCountVal = cc?.count || 0;
-    } catch {}
+  // Empty feed shortcut
+  if (postIds.length === 0) {
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(communityPosts).where(and(...conditions));
+    return { data: [], total: totalResult?.count || 0, page, pageSize };
+  }
 
-    // Forum name
-    let forumName = null;
-    try {
-      if (post.forumId) {
-        const [forum] = await db.select({ name: communityForums.name })
-          .from(communityForums).where(eq(communityForums.id, post.forumId)).limit(1);
-        forumName = forum?.name || null;
-      }
-    } catch {}
+  // ---- BULK QUERIES (8 statt ~220) ----
 
-    // Poll
-    let pollData = null;
-    try {
-      const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.postId, post.id)).limit(1);
-      if (poll) {
-        const options = await db.select().from(communityPollOptions)
-          .where(eq(communityPollOptions.pollId, poll.id))
-          .orderBy(communityPollOptions.sortOrder);
-        const optionsWithVotes = await Promise.all(options.map(async (opt) => {
-          const [voteCount] = await db.select({ count: sql<number>`count(*)::int` })
-            .from(communityPollVotes).where(eq(communityPollVotes.optionId, opt.id));
-          let userVoted = false;
-          if (currentUserId) {
-            const [v] = await db.select({ id: communityPollVotes.id }).from(communityPollVotes)
-              .where(and(eq(communityPollVotes.optionId, opt.id), eq(communityPollVotes.userId, currentUserId))).limit(1);
-            userVoted = !!v;
-          }
-          return { ...opt, voteCount: voteCount?.count || 0, userVoted };
-        }));
-        const totalVotes = optionsWithVotes.reduce((s, o) => s + o.voteCount, 0);
-        pollData = { ...poll, options: optionsWithVotes, totalVotes };
-      }
-    } catch {}
+  // 1) Forum names
+  const forumRows = forumIds.length > 0
+    ? await db.select({ id: communityForums.id, name: communityForums.name })
+        .from(communityForums).where(inArray(communityForums.id, forumIds))
+    : [];
+  const forumNameMap = new Map(forumRows.map((f) => [f.id, f.name]));
 
-    // My reaction + bookmark
-    let myReaction: string | null = null;
-    let isBookmarked = false;
-    if (currentUserId) {
-      try {
-        const [r] = await db.select({ reactionType: communityReactions.reactionType }).from(communityReactions)
-          .where(and(eq(communityReactions.postId, post.id), eq(communityReactions.userId, currentUserId))).limit(1);
-        myReaction = r?.reactionType || null;
-        const [bm] = await db.select({ id: communityBookmarks.id }).from(communityBookmarks)
-          .where(and(eq(communityBookmarks.postId, post.id), eq(communityBookmarks.userId, currentUserId))).limit(1);
-        isBookmarked = !!bm;
-      } catch {}
+  // 2) Reaction counts grouped by post + type
+  const reactionRows = await db.select({
+    postId: communityReactions.postId,
+    reactionType: communityReactions.reactionType,
+    count: sql<number>`count(*)::int`,
+  }).from(communityReactions)
+    .where(inArray(communityReactions.postId, postIds))
+    .groupBy(communityReactions.postId, communityReactions.reactionType);
+
+  const reactionCountsByPost = new Map<string, { counts: Record<string, number>; total: number }>();
+  for (const r of reactionRows) {
+    if (!r.postId) continue;
+    const entry = reactionCountsByPost.get(r.postId) || { counts: {}, total: 0 };
+    entry.counts[r.reactionType] = r.count;
+    entry.total += r.count;
+    reactionCountsByPost.set(r.postId, entry);
+  }
+
+  // 3) Comment counts
+  const commentCountRows = await db.select({
+    postId: communityComments.postId,
+    count: sql<number>`count(*)::int`,
+  }).from(communityComments)
+    .where(inArray(communityComments.postId, postIds))
+    .groupBy(communityComments.postId);
+  const commentCountMap = new Map(commentCountRows.map((c) => [c.postId, c.count]));
+
+  // 4) My reactions (only one per post per user)
+  const myReactionMap = new Map<string, string>();
+  if (currentUserId) {
+    const myReactionRows = await db.select({
+      postId: communityReactions.postId,
+      reactionType: communityReactions.reactionType,
+    }).from(communityReactions)
+      .where(and(
+        inArray(communityReactions.postId, postIds),
+        eq(communityReactions.userId, currentUserId),
+      ));
+    for (const r of myReactionRows) {
+      if (r.postId) myReactionMap.set(r.postId, r.reactionType);
+    }
+  }
+
+  // 5) Bookmarks (which of these posts has the user bookmarked)
+  const bookmarkedSet = new Set<string>();
+  if (currentUserId) {
+    const bookmarkRows = await db.select({ postId: communityBookmarks.postId })
+      .from(communityBookmarks)
+      .where(and(
+        inArray(communityBookmarks.postId, postIds),
+        eq(communityBookmarks.userId, currentUserId),
+      ));
+    for (const b of bookmarkRows) bookmarkedSet.add(b.postId);
+  }
+
+  // 6) Latest comment per post — single query using DISTINCT ON (PostgreSQL)
+  const idsParam = sql.join(postIds.map((id) => sql`${id}`), sql`, `);
+  const latestCommentRows = await db.execute<{
+    post_id: string;
+    id: string;
+    content: string;
+    created_at: Date;
+    author_id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  }>(sql`
+    SELECT DISTINCT ON (c.post_id)
+      c.post_id, c.id, c.content, c.created_at,
+      c.author_id, u.first_name, u.last_name, u.avatar_url
+    FROM community_comments c
+    INNER JOIN users u ON u.id = c.author_id
+    WHERE c.post_id IN (${idsParam})
+    ORDER BY c.post_id, c.created_at DESC
+  `);
+  const latestCommentMap = new Map<string, any>();
+  for (const c of latestCommentRows.rows) {
+    latestCommentMap.set(c.post_id, {
+      id: c.id,
+      content: c.content,
+      createdAt: c.created_at,
+      authorId: c.author_id,
+      authorFirstName: c.first_name,
+      authorLastName: c.last_name,
+      authorAvatarUrl: c.avatar_url,
+    });
+  }
+
+  // 7) Polls
+  const pollRows = await db.select().from(communityPolls)
+    .where(inArray(communityPolls.postId, postIds));
+  const pollIds = pollRows.map((p) => p.id);
+  const pollByPostId = new Map(pollRows.map((p) => [p.postId, p]));
+
+  // 8) Poll options + vote counts + user votes (only if there are polls)
+  let pollDataByPostId = new Map<string, any>();
+  if (pollIds.length > 0) {
+    const optionRows = await db.select().from(communityPollOptions)
+      .where(inArray(communityPollOptions.pollId, pollIds))
+      .orderBy(communityPollOptions.sortOrder);
+
+    const optionIds = optionRows.map((o) => o.id);
+
+    // Vote counts grouped by option
+    const voteCountRows = optionIds.length > 0
+      ? await db.select({
+          optionId: communityPollVotes.optionId,
+          count: sql<number>`count(*)::int`,
+        }).from(communityPollVotes)
+          .where(inArray(communityPollVotes.optionId, optionIds))
+          .groupBy(communityPollVotes.optionId)
+      : [];
+    const voteCountMap = new Map(voteCountRows.map((v) => [v.optionId, v.count]));
+
+    // User's votes
+    const userVotedSet = new Set<string>();
+    if (currentUserId && optionIds.length > 0) {
+      const userVoteRows = await db.select({ optionId: communityPollVotes.optionId })
+        .from(communityPollVotes)
+        .where(and(
+          inArray(communityPollVotes.optionId, optionIds),
+          eq(communityPollVotes.userId, currentUserId),
+        ));
+      for (const v of userVoteRows) userVotedSet.add(v.optionId);
     }
 
-    // Latest comment (1) for inline preview
-    let latestComment: any = null;
-    try {
-      const [c] = await db.select({
-        id: communityComments.id,
-        content: communityComments.content,
-        createdAt: communityComments.createdAt,
-        authorId: communityComments.authorId,
-        authorFirstName: users.firstName,
-        authorLastName: users.lastName,
-        authorAvatarUrl: users.avatarUrl,
-      })
-      .from(communityComments)
-      .innerJoin(users, eq(communityComments.authorId, users.id))
-      .where(eq(communityComments.postId, post.id))
-      .orderBy(desc(communityComments.createdAt))
-      .limit(1);
-      latestComment = c || null;
-    } catch {}
+    // Group options by pollId
+    const optionsByPollId = new Map<string, any[]>();
+    for (const opt of optionRows) {
+      const enriched = {
+        ...opt,
+        voteCount: voteCountMap.get(opt.id) || 0,
+        userVoted: userVotedSet.has(opt.id),
+      };
+      const arr = optionsByPollId.get(opt.pollId) || [];
+      arr.push(enriched);
+      optionsByPollId.set(opt.pollId, arr);
+    }
 
+    for (const poll of pollRows) {
+      const options = optionsByPollId.get(poll.id) || [];
+      const totalVotes = options.reduce((s, o) => s + o.voteCount, 0);
+      pollDataByPostId.set(poll.postId, { ...poll, options, totalVotes });
+    }
+  }
+
+  // ---- ASSEMBLE ----
+  const postsWithMeta = posts.map((post) => {
+    const reactionData = reactionCountsByPost.get(post.id) || { counts: {}, total: 0 };
     return {
       ...post,
-      forumName,
-      reactionCounts,
-      totalReactions,
-      commentCount: commentCountVal,
-      poll: pollData,
-      myReaction,
-      isBookmarked,
-      latestComment,
+      forumName: post.forumId ? forumNameMap.get(post.forumId) || null : null,
+      reactionCounts: reactionData.counts,
+      totalReactions: reactionData.total,
+      commentCount: commentCountMap.get(post.id) || 0,
+      poll: pollDataByPostId.get(post.id) || null,
+      myReaction: myReactionMap.get(post.id) || null,
+      isBookmarked: bookmarkedSet.has(post.id),
+      latestComment: latestCommentMap.get(post.id) || null,
     };
-  }));
+  });
 
   const [totalResult] = await db.select({ count: sql<number>`count(*)::int` })
     .from(communityPosts).where(and(...conditions));
