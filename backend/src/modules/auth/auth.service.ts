@@ -115,6 +115,8 @@ export async function getMe(userId: string) {
       orgId: users.orgId,
       vacationDaysPerYear: users.vacationDaysPerYear,
       weeklyTargetHours: users.weeklyTargetHours,
+      initialBalanceMinutes: users.initialBalanceMinutes,
+      workingDays: users.workingDays,
       isActive: users.isActive,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
@@ -128,12 +130,24 @@ export async function getMe(userId: string) {
 
 export async function updateMe(
   userId: string,
-  data: { firstName?: string; lastName?: string; phone?: string }
+  data: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    weeklyTargetHours?: number | string;
+    initialBalanceMinutes?: number;
+    workingDays?: number[];
+  }
 ) {
   const updateFields: Record<string, any> = { updatedAt: new Date() };
   if (data.firstName !== undefined) updateFields.firstName = data.firstName;
   if (data.lastName !== undefined) updateFields.lastName = data.lastName;
   if (data.phone !== undefined) updateFields.phone = data.phone;
+  if (data.weeklyTargetHours !== undefined) updateFields.weeklyTargetHours = String(data.weeklyTargetHours);
+  if (data.initialBalanceMinutes !== undefined) updateFields.initialBalanceMinutes = data.initialBalanceMinutes;
+  if (data.workingDays !== undefined && Array.isArray(data.workingDays)) {
+    updateFields.workingDays = data.workingDays.filter(d => Number.isInteger(d) && d >= 1 && d <= 7);
+  }
 
   await db.update(users).set(updateFields).where(eq(users.id, userId));
   return getMe(userId);

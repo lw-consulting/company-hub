@@ -136,22 +136,32 @@ export async function getSummary(
     }
   }
 
-  // Get target hours
+  // Get user settings
   const [user] = await db
-    .select({ weeklyTargetHours: users.weeklyTargetHours })
+    .select({
+      weeklyTargetHours: users.weeklyTargetHours,
+      workingDays: users.workingDays,
+      initialBalanceMinutes: users.initialBalanceMinutes,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
   const weeklyTarget = parseFloat(String(user?.weeklyTargetHours || '40'));
-  const dailyTarget = weeklyTarget / 5; // Assuming 5-day week
+  const workingDays = (user?.workingDays as number[]) || [1, 2, 3, 4, 5];
+  const initialBalanceMinutes = user?.initialBalanceMinutes || 0;
+  const dailyTarget = workingDays.length > 0 ? weeklyTarget / workingDays.length : weeklyTarget / 5;
 
-  // Calculate weeks in range
+  // Count working days in the given range based on user's workingDays setting
   const startD = new Date(startDate);
   const endD = new Date(endDate);
-  const daysDiff = Math.ceil((endD.getTime() - startD.getTime()) / 86400000) + 1;
-  const weeksInRange = daysDiff / 7;
-  const targetMinutes = weeksInRange * weeklyTarget * 60;
+  let workingDaysInRange = 0;
+  for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+    // JS: 0=Sun, 1=Mon, ..., 6=Sat → convert to 1=Mon..7=Sun
+    const dayNum = d.getDay() === 0 ? 7 : d.getDay();
+    if (workingDays.includes(dayNum)) workingDaysInRange++;
+  }
+  const targetMinutes = workingDaysInRange * dailyTarget * 60;
 
   return {
     totalHours: Math.round((totalMinutes / 60) * 100) / 100,
@@ -160,8 +170,12 @@ export async function getSummary(
     daysWorked: daysWorked.size,
     targetHours: Math.round((targetMinutes / 60) * 100) / 100,
     balanceHours: Math.round(((totalMinutes - targetMinutes) / 60) * 100) / 100,
+    // Cumulative balance including initial carryover (for dashboard "lifetime saldo")
+    initialBalanceMinutes,
+    initialBalanceHours: Math.round((initialBalanceMinutes / 60) * 100) / 100,
     dailyTargetHours: dailyTarget,
     weeklyTargetHours: weeklyTarget,
+    workingDays,
     entries: entries.map((e) => ({
       ...e,
       durationMinutes: e.clockOut
@@ -203,6 +217,70 @@ export async function updateEntry(
     .returning();
 
   if (!entry) throw new NotFoundError('Zeiteintrag nicht gefunden');
+  return entry;
+}
+
+/** User edits their own time entry (marked as userEdited) */
+export async function updateOwnEntry(
+  entryId: string,
+  userId: string,
+  data: {
+    clockIn?: string;
+    clockOut?: string;
+    breakMinutes?: number;
+    notes?: string;
+  }
+) {
+  const [existing] = await db
+    .select()
+    .from(timeEntries)
+    .where(and(eq(timeEntries.id, entryId), eq(timeEntries.userId, userId)))
+    .limit(1);
+
+  if (!existing) throw new NotFoundError('Zeiteintrag nicht gefunden');
+
+  const now = new Date();
+  const updateData: Record<string, any> = {
+    userEdited: true,
+    userEditedAt: now,
+    updatedAt: now,
+  };
+
+  if (data.clockIn) updateData.clockIn = new Date(data.clockIn);
+  if (data.clockOut) updateData.clockOut = new Date(data.clockOut);
+  if (data.breakMinutes !== undefined) updateData.breakMinutes = data.breakMinutes;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+
+  const [entry] = await db
+    .update(timeEntries)
+    .set(updateData)
+    .where(and(eq(timeEntries.id, entryId), eq(timeEntries.userId, userId)))
+    .returning();
+
+  return entry;
+}
+
+/** Add break minutes to the currently active entry */
+export async function addBreak(userId: string, minutes: number) {
+  if (minutes <= 0) throw new AppError('Pause muss größer als 0 sein', 400, 'VALIDATION_ERROR');
+
+  const [active] = await db
+    .select()
+    .from(timeEntries)
+    .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.clockOut)))
+    .limit(1);
+
+  if (!active) throw new ConflictError('Nicht eingestempelt. Bitte zuerst "Kommen" buchen.');
+
+  const [entry] = await db
+    .update(timeEntries)
+    .set({
+      breakMinutes: active.breakMinutes + minutes,
+      updatedAt: new Date(),
+    })
+    .where(eq(timeEntries.id, active.id))
+    .returning();
+
   return entry;
 }
 

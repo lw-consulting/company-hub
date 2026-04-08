@@ -20,6 +20,9 @@ export const timeEntries = pgTable(
     // For corrections by supervisor
     correctedBy: uuid('corrected_by').references(() => users.id, { onDelete: 'set null' }),
     correctionNote: text('correction_note'),
+    // User self-edited tracking
+    userEdited: boolean('user_edited').notNull().default(false),
+    userEditedAt: timestamp('user_edited_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

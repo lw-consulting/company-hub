@@ -62,7 +62,7 @@ export default function AppShell() {
   const renderPage = () => {
     switch (currentPath) {
       case '/':
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={handleNavigate} />;
       case '/admin/users':
         return <AdminUsersPage />;
       case '/admin/organization':

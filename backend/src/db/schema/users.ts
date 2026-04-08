@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, integer, numeric, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, integer, numeric, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations.js';
 
 export const users = pgTable(
@@ -20,6 +20,10 @@ export const users = pgTable(
       .references(() => organizations.id, { onDelete: 'cascade' }),
     vacationDaysPerYear: integer('vacation_days_per_year').notNull().default(25),
     weeklyTargetHours: numeric('weekly_target_hours', { precision: 5, scale: 2 }).notNull().default('40.00'),
+    // Initial balance in minutes (positive = Gutstunden, negative = Minusstunden) carried over at start
+    initialBalanceMinutes: integer('initial_balance_minutes').notNull().default(0),
+    // Working days as array of weekday numbers (1=Mon, 2=Tue, ..., 7=Sun) — default Mon-Fri
+    workingDays: jsonb('working_days').$type<number[]>().notNull().default([1, 2, 3, 4, 5]),
     isActive: boolean('is_active').notNull().default(true),
     refreshToken: text('refresh_token'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

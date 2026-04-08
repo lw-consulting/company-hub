@@ -2,12 +2,12 @@ import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api, apiPost, apiPatch } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
-import { User, Lock, Mail, Phone, Building2, Save, Check, AlertCircle, Eye, EyeOff, Camera, Briefcase } from 'lucide-react';
+import { User, Lock, Mail, Phone, Building2, Save, Check, AlertCircle, Eye, EyeOff, Camera, Briefcase, Clock } from 'lucide-react';
 import AvatarCropModal from '../../components/AvatarCropModal';
 
 export default function ProfilePage() {
   const { user, fetchMe } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'time' | 'password'>('profile');
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -27,14 +27,188 @@ export default function ProfilePage() {
           className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${activeTab === 'profile' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-800 dark:text-neutral-100' : 'text-neutral-500'}`}>
           <User size={16} /> Profil
         </button>
+        <button onClick={() => setActiveTab('time')}
+          className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${activeTab === 'time' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-800 dark:text-neutral-100' : 'text-neutral-500'}`}>
+          <Clock size={16} /> Zeiterfassung
+        </button>
         <button onClick={() => setActiveTab('password')}
           className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${activeTab === 'password' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-800 dark:text-neutral-100' : 'text-neutral-500'}`}>
           <Lock size={16} /> Passwort
         </button>
       </div>
 
-      {activeTab === 'profile' ? <ProfileForm /> : <PasswordForm />}
+      {activeTab === 'profile' && <ProfileForm />}
+      {activeTab === 'time' && <TimeSettingsForm />}
+      {activeTab === 'password' && <PasswordForm />}
     </div>
+  );
+}
+
+const WEEKDAYS = [
+  { num: 1, short: 'Mo', label: 'Montag' },
+  { num: 2, short: 'Di', label: 'Dienstag' },
+  { num: 3, short: 'Mi', label: 'Mittwoch' },
+  { num: 4, short: 'Do', label: 'Donnerstag' },
+  { num: 5, short: 'Fr', label: 'Freitag' },
+  { num: 6, short: 'Sa', label: 'Samstag' },
+  { num: 7, short: 'So', label: 'Sonntag' },
+];
+
+function TimeSettingsForm() {
+  const { user, fetchMe } = useAuthStore();
+  const u: any = user || {};
+
+  // Parse initialBalanceMinutes into hours+minutes (can be negative)
+  const initialMin = u.initialBalanceMinutes || 0;
+  const initialHoursAbs = Math.floor(Math.abs(initialMin) / 60);
+  const initialMinsAbs = Math.abs(initialMin) % 60;
+  const initialSign = initialMin < 0 ? '-' : '+';
+
+  const [weeklyHours, setWeeklyHours] = useState(String(u.weeklyTargetHours || '40'));
+  const [sign, setSign] = useState<'+' | '-'>(initialSign as '+' | '-');
+  const [balanceHours, setBalanceHours] = useState(String(initialHoursAbs));
+  const [balanceMins, setBalanceMins] = useState(String(initialMinsAbs));
+  const [workingDays, setWorkingDays] = useState<number[]>(u.workingDays || [1, 2, 3, 4, 5]);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  const updateMut = useMutation({
+    mutationFn: (data: any) => apiPatch('/auth/me', data),
+    onSuccess: () => {
+      fetchMe();
+      setSaved(true);
+      setError('');
+      setTimeout(() => setSaved(false), 2500);
+    },
+    onError: (e: any) => setError(e?.message || 'Fehler beim Speichern'),
+  });
+
+  const toggleDay = (day: number) => {
+    setWorkingDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort());
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const hours = parseFloat(weeklyHours);
+    const bh = parseInt(balanceHours, 10) || 0;
+    const bm = parseInt(balanceMins, 10) || 0;
+    if (isNaN(hours) || hours <= 0 || hours > 168) {
+      setError('Wochenstunden müssen zwischen 0 und 168 liegen');
+      return;
+    }
+    if (workingDays.length === 0) {
+      setError('Mindestens ein Arbeitstag muss ausgewählt sein');
+      return;
+    }
+    const totalMinutes = (sign === '-' ? -1 : 1) * (bh * 60 + bm);
+    updateMut.mutate({
+      weeklyTargetHours: hours,
+      initialBalanceMinutes: totalMinutes,
+      workingDays,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="card p-6 space-y-5">
+      <div>
+        <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Arbeitszeit-Einstellungen</h3>
+        <p className="text-xs text-neutral-500">Diese Werte werden für die Berechnung deines Saldos verwendet.</p>
+      </div>
+
+      <div>
+        <label className="label">Wochenstunden (Soll)</label>
+        <input
+          type="number"
+          step="0.5"
+          min="0"
+          max="168"
+          className="input"
+          value={weeklyHours}
+          onChange={(e) => setWeeklyHours(e.target.value)}
+        />
+        <p className="text-xs text-neutral-400 mt-1">z.B. 40 für Vollzeit, 20 für 50% Teilzeit</p>
+      </div>
+
+      <div>
+        <label className="label">Arbeitstage</label>
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAYS.map((d) => (
+            <button
+              key={d.num}
+              type="button"
+              onClick={() => toggleDay(d.num)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                workingDays.includes(d.num)
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+              }`}
+              title={d.label}
+            >
+              {d.short}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-400 mt-2">
+          Tagessoll: {workingDays.length > 0 ? (parseFloat(weeklyHours) / workingDays.length).toFixed(2) : '--'}h bei {workingDays.length} Tagen
+        </p>
+      </div>
+
+      <div>
+        <label className="label">Übertragene Zeit (Saldo zum Startzeitpunkt)</label>
+        <div className="flex gap-2 items-center">
+          <div className="flex bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setSign('+')}
+              className={`px-3 py-1.5 rounded text-sm font-semibold ${sign === '+' ? 'bg-emerald-500 text-white' : 'text-neutral-500'}`}
+            >
+              + Gut
+            </button>
+            <button
+              type="button"
+              onClick={() => setSign('-')}
+              className={`px-3 py-1.5 rounded text-sm font-semibold ${sign === '-' ? 'bg-red-500 text-white' : 'text-neutral-500'}`}
+            >
+              − Minus
+            </button>
+          </div>
+          <input
+            type="number"
+            min="0"
+            className="input flex-1"
+            value={balanceHours}
+            onChange={(e) => setBalanceHours(e.target.value)}
+            placeholder="Stunden"
+          />
+          <span className="text-neutral-400">h</span>
+          <input
+            type="number"
+            min="0"
+            max="59"
+            className="input flex-1"
+            value={balanceMins}
+            onChange={(e) => setBalanceMins(e.target.value)}
+            placeholder="Minuten"
+          />
+          <span className="text-neutral-400">min</span>
+        </div>
+        <p className="text-xs text-neutral-400 mt-1">Startsaldo bei der Einführung des Systems</p>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      <button type="submit" className="btn-primary" disabled={updateMut.isPending}>
+        {updateMut.isPending ? 'Speichern...' : saved ? (
+          <><Check size={16} /> Gespeichert</>
+        ) : (
+          <><Save size={16} /> Änderungen speichern</>
+        )}
+      </button>
+    </form>
   );
 }
 

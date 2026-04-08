@@ -114,6 +114,12 @@ fastify.get('/api/db-repair', async (request, reply) => {
     `CREATE TABLE IF NOT EXISTS crm_companies (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, name VARCHAR(300) NOT NULL, website VARCHAR(500), industry VARCHAR(100), size VARCHAR(50), address TEXT, phone VARCHAR(50), notes TEXT, owner_id UUID REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS crm_deals (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, title VARCHAR(300) NOT NULL, value NUMERIC(12,2), currency VARCHAR(3) DEFAULT 'EUR', stage VARCHAR(50) NOT NULL DEFAULT 'lead', probability INTEGER DEFAULT 0, contact_id UUID, company_id UUID, owner_id UUID REFERENCES users(id) ON DELETE SET NULL, expected_close_date TIMESTAMPTZ, closed_at TIMESTAMPTZ, notes TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS crm_activities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, type VARCHAR(30) NOT NULL, title VARCHAR(300) NOT NULL, description TEXT, contact_id UUID, deal_id UUID, company_id UUID, created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, activity_date TIMESTAMPTZ NOT NULL DEFAULT NOW(), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    // Time tracking user edit tracking
+    `ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS user_edited BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS user_edited_at TIMESTAMPTZ`,
+    // User time tracking settings
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS initial_balance_minutes INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS working_days JSONB NOT NULL DEFAULT '[1,2,3,4,5]'`,
   ];
 
   const results: string[] = [];
