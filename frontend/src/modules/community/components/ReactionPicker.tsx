@@ -17,20 +17,13 @@ export const REACTION_EMOJI: Record<string, string> = {
 
 interface ReactionPickerProps {
   myReaction: string | null;
-  reactionCounts: Record<string, number>;
-  totalReactions: number;
+  reactionCounts?: Record<string, number>;
+  totalReactions?: number;
   onReact: (type: string) => void;
 }
 
-export default function ReactionPicker({ myReaction, reactionCounts, totalReactions, onReact }: ReactionPickerProps) {
+export default function ReactionPicker({ myReaction, onReact }: ReactionPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
-
-  // Get top 3 reactions for display
-  const topReactions = Object.entries(reactionCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([type]) => REACTION_EMOJI[type])
-    .filter(Boolean);
 
   return (
     <div className="relative">
@@ -59,23 +52,15 @@ export default function ReactionPicker({ myReaction, reactionCounts, totalReacti
       <button
         onMouseEnter={() => setShowPicker(true)}
         onClick={() => onReact(myReaction || 'like')}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
           myReaction
             ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200'
             : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
         }`}
       >
-        <span className="text-base">{myReaction ? REACTION_EMOJI[myReaction] : '👍'}</span>
-        {myReaction ? REACTIONS.find(r => r.type === myReaction)?.label || 'Gefällt mir' : 'Gefällt mir'}
+        <span className="text-base leading-none">{myReaction ? REACTION_EMOJI[myReaction] : '👍'}</span>
+        <span>{myReaction ? REACTIONS.find(r => r.type === myReaction)?.label || 'Gefällt mir' : 'Gefällt mir'}</span>
       </button>
-
-      {/* Reaction summary (under post) */}
-      {totalReactions > 0 && (
-        <div className="flex items-center gap-1 mt-1 text-xs text-neutral-400">
-          <span className="flex -space-x-0.5">{topReactions.map((e, i) => <span key={i} className="text-sm">{e}</span>)}</span>
-          <span>{totalReactions}</span>
-        </div>
-      )}
     </div>
   );
 }

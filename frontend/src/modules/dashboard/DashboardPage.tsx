@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '../../lib/api';
+import { apiGet, resolveImageUrl } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
 import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
 import {
@@ -252,7 +252,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
               >
                 <div className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {post.authorAvatarUrl ? (
-                    <img src={post.authorAvatarUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={resolveImageUrl(post.authorAvatarUrl)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-xs font-bold text-neutral-500">
                       {post.authorFirstName?.[0]}{post.authorLastName?.[0]}

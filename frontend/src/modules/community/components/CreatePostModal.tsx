@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPatch } from '../../../lib/api';
+import { apiGet, apiPost, apiPatch, resolveImageUrl } from '../../../lib/api';
 import { useAuthStore } from '../../../stores/auth.store';
 import { X, Image, Video, File, BarChart3, Smile, Trash2 } from 'lucide-react';
 import { GRADIENTS, EMOJI_BACKGROUNDS, getBackgroundStyle, getBackgroundEmoji } from './PostBackgrounds';
@@ -79,7 +79,7 @@ export default function CreatePostModal({ onClose, defaultForumId, editingPost }
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
-              {user?.avatarUrl ? <img src={user.avatarUrl} className="w-9 h-9 rounded-full object-cover" /> :
+              {user?.avatarUrl ? <img src={resolveImageUrl(user.avatarUrl)} className="w-9 h-9 rounded-full object-cover" /> :
                 <span className="text-xs font-bold text-neutral-500">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>}
             </div>
             <span className="font-semibold text-neutral-800 dark:text-white">{user?.firstName} {user?.lastName}</span>

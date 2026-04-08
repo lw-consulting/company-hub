@@ -1,6 +1,25 @@
 // Use environment variable for API URL, fallback to relative /api for dev proxy
 const API_BASE = (import.meta as any).env?.VITE_API_URL || '/api';
 
+/**
+ * Resolve a server-stored image path to a usable URL.
+ * Backend returns paths like "/uploads/avatars/xxx.jpg" which must be served
+ * from the backend domain, not the frontend.
+ */
+export function resolveImageUrl(path: string | null | undefined): string {
+  if (!path) return '';
+  // Already absolute or data: URL
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  // Relative path — prepend backend root (API_BASE without trailing /api)
+  if (path.startsWith('/')) {
+    const root = API_BASE.replace(/\/api\/?$/, '');
+    return `${root}${path}`;
+  }
+  return path;
+}
+
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
 }

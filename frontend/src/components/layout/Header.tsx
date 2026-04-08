@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/auth.store';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '../../lib/api';
+import { apiGet, resolveImageUrl } from '../../lib/api';
 import { Bell, User, Menu, Moon, Sun } from 'lucide-react';
 
 interface HeaderProps {
@@ -57,7 +57,7 @@ export default function Header({ title, onMobileMenuToggle }: HeaderProps) {
         <div className="flex items-center gap-3 ml-2 pl-3 border-l border-neutral-100 dark:border-neutral-800">
           <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+              <img src={resolveImageUrl(user.avatarUrl)} alt="" className="w-8 h-8 rounded-full object-cover" />
             ) : (
               <span className="text-xs font-bold text-neutral-500 dark:text-neutral-400">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
             )}

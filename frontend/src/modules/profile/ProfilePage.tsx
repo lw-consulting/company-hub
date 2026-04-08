@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { api, apiPost, apiPatch } from '../../lib/api';
+import { api, apiPost, apiPatch, resolveImageUrl } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
 import { User, Lock, Mail, Phone, Building2, Save, Check, AlertCircle, Eye, EyeOff, Camera, Briefcase, Clock } from 'lucide-react';
 import AvatarCropModal from '../../components/AvatarCropModal';
@@ -248,7 +248,11 @@ function AvatarUpload() {
       <div className="relative group cursor-pointer" onClick={() => fileRef.current?.click()}>
         <div className="w-20 h-20 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} className="w-20 h-20 rounded-full object-cover" />
+            <img
+              src={resolveImageUrl(user.avatarUrl)}
+              className="w-20 h-20 rounded-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
           ) : (
             <span className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>
               {user?.firstName?.[0]}{user?.lastName?.[0]}

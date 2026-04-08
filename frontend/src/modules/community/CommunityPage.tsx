@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
+import { api, apiGet, apiPost, apiPatch, apiDelete, resolveImageUrl } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
 import ReactionPicker from './components/ReactionPicker';
 import PollView from './components/PollView';
@@ -670,7 +670,11 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
 
 function Avatar({ url, firstName, lastName, size = 'md' }: { url?: string | null; firstName: string; lastName: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const dims = { sm: 'w-7 h-7 text-[10px]', md: 'w-10 h-10 text-sm', lg: 'w-12 h-12 text-base', xl: 'w-16 h-16 text-xl' }[size];
-  if (url) return <img src={url} alt="" className={`${dims} rounded-full object-cover flex-shrink-0`} />;
+  const [errored, setErrored] = useState(false);
+  const resolved = resolveImageUrl(url);
+  if (resolved && !errored) {
+    return <img src={resolved} alt="" onError={() => setErrored(true)} className={`${dims} rounded-full object-cover flex-shrink-0`} />;
+  }
   return (
     <div className={`${dims} rounded-full bg-accent/20 dark:bg-accent/15 flex items-center justify-center flex-shrink-0`}>
       <span className="font-medium text-accent dark:text-accent">{firstName?.[0]}{lastName?.[0]}</span>
