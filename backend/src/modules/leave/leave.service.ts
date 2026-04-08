@@ -338,7 +338,7 @@ export async function updateOwnLeaveRequest(
       halfDayStart: newHalfDayStart,
       halfDayEnd: newHalfDayEnd,
       reason: data.reason !== undefined ? data.reason : request.reason,
-      businessDays: String(businessDays),
+      businessDays,
       updatedAt: new Date(),
     })
     .where(eq(leaveRequests.id, requestId))
