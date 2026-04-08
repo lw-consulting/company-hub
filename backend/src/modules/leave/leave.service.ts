@@ -204,6 +204,7 @@ export async function getMyLeaveRequests(userId: string, year?: number) {
   const requests = await db
     .select({
       id: leaveRequests.id,
+      leaveTypeId: leaveRequests.leaveTypeId,
       startDate: leaveRequests.startDate,
       endDate: leaveRequests.endDate,
       halfDayStart: leaveRequests.halfDayStart,
@@ -265,6 +266,111 @@ export async function getVacationBalance(userId: string, year?: number) {
 }
 
 /** Supervisor approves or rejects a leave request */
+/** User updates their own pending leave request */
+export async function updateOwnLeaveRequest(
+  requestId: string,
+  userId: string,
+  orgId: string,
+  data: {
+    leaveTypeId?: string;
+    startDate?: string;
+    endDate?: string;
+    halfDayStart?: boolean;
+    halfDayEnd?: boolean;
+    reason?: string;
+  }
+) {
+  const [request] = await db
+    .select()
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.id, requestId), eq(leaveRequests.userId, userId)))
+    .limit(1);
+
+  if (!request) throw new NotFoundError('Antrag nicht gefunden');
+  if (request.status !== 'pending') {
+    throw new ConflictError('Nur ausstehende Anträge können bearbeitet werden');
+  }
+
+  // Build new effective values
+  const newLeaveTypeId = data.leaveTypeId ?? request.leaveTypeId;
+  const newStartDate = data.startDate ?? request.startDate;
+  const newEndDate = data.endDate ?? request.endDate;
+  const newHalfDayStart = data.halfDayStart ?? request.halfDayStart;
+  const newHalfDayEnd = data.halfDayEnd ?? request.halfDayEnd;
+
+  // Check overlap with OTHER requests (exclude this one)
+  const overlapping = await db
+    .select({ id: leaveRequests.id })
+    .from(leaveRequests)
+    .where(
+      and(
+        eq(leaveRequests.userId, userId),
+        ne(leaveRequests.id, requestId),
+        ne(leaveRequests.status, 'rejected'),
+        ne(leaveRequests.status, 'cancelled'),
+        lte(leaveRequests.startDate, newEndDate),
+        gte(leaveRequests.endDate, newStartDate)
+      )
+    )
+    .limit(1);
+
+  if (overlapping.length > 0) {
+    throw new ConflictError('Es gibt bereits einen Antrag für diesen Zeitraum');
+  }
+
+  // Recalculate business days
+  const year = new Date(newStartDate).getFullYear();
+  const holidays = await getPublicHolidayDates(orgId, year);
+  const businessDays = calculateBusinessDays(
+    newStartDate,
+    newEndDate,
+    holidays,
+    newHalfDayStart || false,
+    newHalfDayEnd || false
+  );
+
+  const [updated] = await db
+    .update(leaveRequests)
+    .set({
+      leaveTypeId: newLeaveTypeId,
+      startDate: newStartDate,
+      endDate: newEndDate,
+      halfDayStart: newHalfDayStart,
+      halfDayEnd: newHalfDayEnd,
+      reason: data.reason !== undefined ? data.reason : request.reason,
+      businessDays: String(businessDays),
+      updatedAt: new Date(),
+    })
+    .where(eq(leaveRequests.id, requestId))
+    .returning();
+
+  return updated;
+}
+
+/** User cancels their own pending leave request */
+export async function cancelOwnLeaveRequest(requestId: string, userId: string) {
+  const [request] = await db
+    .select()
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.id, requestId), eq(leaveRequests.userId, userId)))
+    .limit(1);
+
+  if (!request) throw new NotFoundError('Antrag nicht gefunden');
+  if (request.status !== 'pending') {
+    throw new ConflictError('Nur ausstehende Anträge können storniert werden');
+  }
+
+  await db
+    .update(leaveRequests)
+    .set({
+      status: 'cancelled',
+      updatedAt: new Date(),
+    })
+    .where(eq(leaveRequests.id, requestId));
+
+  return { id: requestId };
+}
+
 export async function decideLeaveRequest(
   requestId: string,
   decidedBy: string,

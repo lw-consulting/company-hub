@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPatch } from '../../lib/api';
+import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
 import { useAuthStore } from '../../stores/auth.store';
 import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
-import { Palmtree, Plus, CheckCircle, XCircle, Clock, X, CalendarDays } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Clock, X, Edit, Trash2, AlertCircle } from 'lucide-react';
 
 interface LeaveBalance {
   totalDays: number;
@@ -24,8 +24,11 @@ interface LeaveType {
 
 interface LeaveRequest {
   id: string;
+  leaveTypeId: string;
   startDate: string;
   endDate: string;
+  halfDayStart: boolean;
+  halfDayEnd: boolean;
   businessDays: number;
   reason: string | null;
   status: string;
@@ -51,7 +54,18 @@ export default function LeavePage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+  const [deletingRequest, setDeletingRequest] = useState<LeaveRequest | null>(null);
   const isManager = ROLE_HIERARCHY[(user?.role as Role) || 'user'] >= ROLE_HIERARCHY.manager;
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiDelete(`/leave/requests/${id}/own`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['leave-balance'] });
+      setDeletingRequest(null);
+    },
+  });
 
   const { data: balance } = useQuery({
     queryKey: ['leave-balance'],
@@ -99,14 +113,16 @@ export default function LeavePage() {
                 <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Tage</th>
                 <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Status</th>
                 <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Eingereicht</th>
+                <th className="text-right text-xs font-semibold text-neutral-500 uppercase px-6 py-3">Aktionen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light">
               {!requests?.length ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-neutral-400">Keine Anträge vorhanden</td></tr>
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">Keine Anträge vorhanden</td></tr>
               ) : (
                 requests.map((req) => {
                   const config = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+                  const canEdit = req.status === 'pending';
                   return (
                     <tr key={req.id} className="hover:bg-surface-secondary/50">
                       <td className="px-6 py-3">
@@ -124,6 +140,28 @@ export default function LeavePage() {
                       </td>
                       <td className="px-6 py-3 text-sm text-neutral-400">
                         {new Date(req.createdAt).toLocaleDateString('de-AT')}
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        {canEdit ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => setEditingRequest(req)}
+                              className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                              title="Bearbeiten"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => setDeletingRequest(req)}
+                              className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              title="Stornieren"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-neutral-300">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -148,6 +186,43 @@ export default function LeavePage() {
 
       {/* Create Form Modal */}
       {showForm && <CreateLeaveModal onClose={() => setShowForm(false)} />}
+
+      {/* Edit Modal */}
+      {editingRequest && (
+        <CreateLeaveModal
+          onClose={() => setEditingRequest(null)}
+          editingRequest={editingRequest}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      {deletingRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 max-w-sm w-full space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                <AlertCircle size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">Antrag stornieren?</h3>
+                <p className="text-sm text-neutral-500 mt-1">
+                  {deletingRequest.leaveTypeName} vom {formatDate(deletingRequest.startDate)} bis {formatDate(deletingRequest.endDate)} ({deletingRequest.businessDays} Tage) wird storniert.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeletingRequest(null)} className="btn-secondary">Abbrechen</button>
+              <button
+                onClick={() => deleteMutation.mutate(deletingRequest.id)}
+                className="btn-danger"
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Storniere...' : 'Stornieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -214,15 +289,16 @@ function PendingApprovalCard({ request }: { request: LeaveRequest }) {
   );
 }
 
-function CreateLeaveModal({ onClose }: { onClose: () => void }) {
+function CreateLeaveModal({ onClose, editingRequest }: { onClose: () => void; editingRequest?: LeaveRequest }) {
+  const isEdit = !!editingRequest;
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    leaveTypeId: '',
-    startDate: '',
-    endDate: '',
-    halfDayStart: false,
-    halfDayEnd: false,
-    reason: '',
+    leaveTypeId: editingRequest?.leaveTypeId || '',
+    startDate: editingRequest?.startDate || '',
+    endDate: editingRequest?.endDate || '',
+    halfDayStart: editingRequest?.halfDayStart || false,
+    halfDayEnd: editingRequest?.halfDayEnd || false,
+    reason: editingRequest?.reason || '',
   });
   const [error, setError] = useState('');
 
@@ -241,9 +317,22 @@ function CreateLeaveModal({ onClose }: { onClose: () => void }) {
     onError: (err: any) => setError(err?.message || 'Fehler'),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiPatch(`/leave/requests/${editingRequest?.id}/own`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['leave-balance'] });
+      onClose();
+    },
+    onError: (err: any) => setError(err?.message || 'Fehler'),
+  });
+
+  const mutation = isEdit ? updateMutation : createMutation;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
+    setError('');
+    mutation.mutate({
       ...form,
       reason: form.reason || undefined,
     });
@@ -253,11 +342,17 @@ function CreateLeaveModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="card p-6 w-full max-w-lg">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-neutral-800">Neuer Antrag</h3>
+          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+            {isEdit ? 'Antrag bearbeiten' : 'Neuer Antrag'}
+          </h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600"><X size={20} /></button>
         </div>
 
-        {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
+        {error && (
+          <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -296,8 +391,8 @@ function CreateLeaveModal({ onClose }: { onClose: () => void }) {
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Abbrechen</button>
-            <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Sende...' : 'Antrag einreichen'}
+            <button type="submit" className="btn-primary" disabled={mutation.isPending}>
+              {mutation.isPending ? 'Sende...' : isEdit ? 'Änderungen speichern' : 'Antrag einreichen'}
             </button>
           </div>
         </form>

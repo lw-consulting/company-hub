@@ -45,6 +45,21 @@ export async function leaveRoutes(fastify: FastifyInstance) {
     return reply.send({ data: balance, statusCode: 200 });
   });
 
+  // PATCH /api/leave/requests/:id/own (user edits own pending request)
+  fastify.patch('/api/leave/requests/:id/own', { preHandler: [modGuard] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+    const updated = await leaveService.updateOwnLeaveRequest(id, request.user.sub, request.user.orgId, data);
+    return reply.send({ data: updated, statusCode: 200 });
+  });
+
+  // DELETE /api/leave/requests/:id/own (user cancels own pending request)
+  fastify.delete('/api/leave/requests/:id/own', { preHandler: [modGuard] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const result = await leaveService.cancelOwnLeaveRequest(id, request.user.sub);
+    return reply.send({ data: result, statusCode: 200 });
+  });
+
   // --- Supervisor / Approval ---
 
   // GET /api/leave/pending (supervisor sees pending requests)
