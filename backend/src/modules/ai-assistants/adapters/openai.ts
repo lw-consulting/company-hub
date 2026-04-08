@@ -3,7 +3,7 @@ import type { LLMAdapter, ChatMessage, StreamChunk } from './base.js';
 export class OpenAIAdapter implements LLMAdapter {
   constructor(private apiKey: string) {}
 
-  async chat(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number }): Promise<string> {
+  async chat(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number; topP?: number }): Promise<string> {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -15,6 +15,7 @@ export class OpenAIAdapter implements LLMAdapter {
         messages,
         temperature: options.temperature ?? 0.7,
         max_tokens: options.maxTokens ?? 2048,
+        top_p: options.topP ?? 1,
       }),
     });
 
@@ -27,7 +28,7 @@ export class OpenAIAdapter implements LLMAdapter {
     return data.choices[0]?.message?.content || '';
   }
 
-  async *chatStream(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number }): AsyncGenerator<StreamChunk> {
+  async *chatStream(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number; topP?: number }): AsyncGenerator<StreamChunk> {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,6 +40,7 @@ export class OpenAIAdapter implements LLMAdapter {
         messages,
         temperature: options.temperature ?? 0.7,
         max_tokens: options.maxTokens ?? 2048,
+        top_p: options.topP ?? 1,
         stream: true,
       }),
     });

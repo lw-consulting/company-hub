@@ -8,6 +8,13 @@
       "when": 1775670209884,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775675584246,
+      "tag": "0001_nostalgic_nicolaos",
+      "breakpoints": true
     }
   ]
 }
