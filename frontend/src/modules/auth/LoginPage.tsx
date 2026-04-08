@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../stores/auth.store';
+import { useOrgStore } from '../../stores/org.store';
+import { resolveImageUrl } from '../../lib/api';
 import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, isLoading } = useAuthStore();
+  const { branding } = useOrgStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+
+  const orgName = branding?.name || 'Company Hub';
+  const logoUrl = branding?.logoUrl;
+  const initials = orgName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'CH';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,11 +35,17 @@ export default function LoginPage() {
           <div className="absolute bottom-20 right-20 w-64 h-64 rounded-full border border-white/20" />
         </div>
         <div className="relative z-10 max-w-md">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-10">
-            <span className="text-neutral-900 text-lg font-black">CH</span>
-          </div>
+          {logoUrl ? (
+            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mb-10 overflow-hidden p-2">
+              <img src={resolveImageUrl(logoUrl)} alt={orgName} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-10">
+              <span className="text-neutral-900 text-lg font-black">{initials}</span>
+            </div>
+          )}
           <h1 className="text-4xl font-bold text-white leading-tight tracking-tight">
-            Ihr zentrales<br />Unternehmensportal
+            {orgName}
           </h1>
           <p className="text-neutral-400 text-lg mt-4 leading-relaxed">
             Alles an einem Ort. Zeiterfassung, Kommunikation, Aufgaben und mehr.
@@ -44,14 +57,21 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-surface-secondary dark:bg-neutral-950">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden mb-12">
-            <div className="w-10 h-10 bg-neutral-900 dark:bg-white rounded-xl flex items-center justify-center mb-4">
-              <span className="text-white dark:text-neutral-900 text-sm font-black">CH</span>
-            </div>
+          <div className="lg:hidden mb-12 flex items-center gap-3">
+            {logoUrl ? (
+              <div className="w-10 h-10 rounded-xl overflow-hidden p-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700">
+                <img src={resolveImageUrl(logoUrl)} alt={orgName} className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 bg-neutral-900 dark:bg-white rounded-xl flex items-center justify-center">
+                <span className="text-white dark:text-neutral-900 text-sm font-black">{initials}</span>
+              </div>
+            )}
+            <span className="font-bold text-neutral-900 dark:text-white">{orgName}</span>
           </div>
 
           <h2 className="text-display text-neutral-900 dark:text-white">Willkommen</h2>
-          <p className="text-muted mt-2 mb-10">Melden Sie sich an, um fortzufahren</p>
+          <p className="text-muted mt-2 mb-10">Melden Sie sich bei {orgName} an</p>
 
           {error && (
             <div className="p-4 mb-6 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">

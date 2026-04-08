@@ -268,6 +268,37 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
           <p className="text-neutral-700 dark:text-neutral-200 whitespace-pre-wrap mb-3 leading-relaxed">{post.content}</p>
         )}
 
+        {/* Media attachments */}
+        {post.mediaUrls && post.mediaUrls.length > 0 && (
+          <div className={`grid gap-2 mb-3 ${post.mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {post.mediaUrls.map((url, i) => {
+              const isImage = /\.(jpe?g|png|webp|gif)$/i.test(url);
+              const isVideo = /\.(mp4|webm|mov)$/i.test(url);
+              const resolved = resolveImageUrl(url);
+              const filename = url.split('/').pop()?.replace(/^[a-f0-9-]+-/, '') || 'Datei';
+              if (isImage) {
+                return (
+                  <a key={i} href={resolved} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                    <img src={resolved} alt="" className="w-full max-h-96 object-cover" />
+                  </a>
+                );
+              }
+              if (isVideo) {
+                return (
+                  <video key={i} src={resolved} controls className="w-full max-h-96 rounded-xl bg-black" />
+                );
+              }
+              return (
+                <a key={i} href={resolved} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-100 dark:border-neutral-700">
+                  <File size={20} className="text-neutral-400 flex-shrink-0" />
+                  <span className="text-sm text-neutral-700 dark:text-neutral-200 truncate flex-1">{filename}</span>
+                </a>
+              );
+            })}
+          </div>
+        )}
+
         {/* Poll */}
         {post.poll && <PollView poll={post.poll} postId={post.id} />}
 

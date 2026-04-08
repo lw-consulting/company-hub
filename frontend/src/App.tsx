@@ -1,42 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuthStore } from './stores/auth.store';
+import { useOrgStore } from './stores/org.store';
 import LoginPage from './modules/auth/LoginPage';
 import AppShell from './components/layout/AppShell';
-import { apiGet } from './lib/api';
 
 export default function App() {
   const { isAuthenticated, fetchMe, user } = useAuthStore();
-  const [brandingLoaded, setBrandingLoaded] = useState(false);
+  const { branding, loading: brandingLoading, fetchBranding } = useOrgStore();
+  const brandingLoaded = !!branding || !brandingLoading;
 
   // Load branding/CI on mount
   useEffect(() => {
-    apiGet('/organizations/branding')
-      .then((branding) => {
-        if (branding) {
-          const root = document.documentElement;
-          if (branding.primaryColor) {
-            root.style.setProperty('--color-primary', branding.primaryColor);
-            // Generate light/dark variants
-            root.style.setProperty('--color-primary-light', lighten(branding.primaryColor, 15));
-            root.style.setProperty('--color-primary-dark', darken(branding.primaryColor, 12));
-            root.style.setProperty('--color-primary-50', lighten(branding.primaryColor, 42));
-          }
-          if (branding.secondaryColor) {
-            root.style.setProperty('--color-secondary', branding.secondaryColor);
-            root.style.setProperty('--color-secondary-light', lighten(branding.secondaryColor, 10));
-          }
-          if (branding.accentColor) {
-            root.style.setProperty('--color-accent', branding.accentColor);
-            root.style.setProperty('--color-accent-light', lighten(branding.accentColor, 15));
-          }
-          if (branding.name) {
-            document.title = branding.name;
-          }
-        }
-      })
-      .catch(() => {})
-      .finally(() => setBrandingLoaded(true));
+    fetchBranding();
   }, []);
+
+  // Apply CSS variables when branding changes
+  useEffect(() => {
+    if (!branding) return;
+    const root = document.documentElement;
+    if (branding.primaryColor) {
+      root.style.setProperty('--color-primary', branding.primaryColor);
+      root.style.setProperty('--color-primary-light', lighten(branding.primaryColor, 15));
+      root.style.setProperty('--color-primary-dark', darken(branding.primaryColor, 12));
+      root.style.setProperty('--color-primary-50', lighten(branding.primaryColor, 42));
+    }
+    if (branding.secondaryColor) {
+      root.style.setProperty('--color-secondary', branding.secondaryColor);
+      root.style.setProperty('--color-secondary-light', lighten(branding.secondaryColor, 10));
+    }
+    if (branding.accentColor) {
+      root.style.setProperty('--color-accent', branding.accentColor);
+      root.style.setProperty('--color-accent-light', lighten(branding.accentColor, 15));
+    }
+  }, [branding]);
 
   // Fetch user profile on mount if token exists
   useEffect(() => {
@@ -45,7 +41,7 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
-  if (!brandingLoaded) {
+  if (brandingLoading && !brandingLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />

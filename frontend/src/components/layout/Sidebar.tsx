@@ -1,4 +1,6 @@
 import { useAuthStore } from '../../stores/auth.store';
+import { useOrgStore } from '../../stores/org.store';
+import { resolveImageUrl } from '../../lib/api';
 import { getNavigationItems, type NavItem } from '../../lib/module-registry';
 import { LogOut, ChevronLeft } from 'lucide-react';
 import type { Role, ModuleId } from '@company-hub/shared';
@@ -19,7 +21,12 @@ const GROUP_LABELS: Record<string, string> = {
 
 export default function Sidebar({ currentPath, onNavigate, collapsed, onToggleCollapse }: SidebarProps) {
   const { user, modules, logout } = useAuthStore();
+  const { branding } = useOrgStore();
   if (!user) return null;
+
+  const orgName = branding?.name || 'Company Hub';
+  const logoUrl = branding?.logoUrl;
+  const initials = orgName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'CH';
 
   const navItems = getNavigationItems(modules, user.role as Role);
   const groups = new Map<string, NavItem[]>();
@@ -34,13 +41,19 @@ export default function Sidebar({ currentPath, onNavigate, collapsed, onToggleCo
     <aside className={`fixed left-0 top-0 h-full bg-white dark:bg-neutral-950 border-r border-neutral-100 dark:border-neutral-800 z-30 flex flex-col transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-[260px]'}`}>
       {/* Logo */}
       <div className="h-16 flex items-center px-5 flex-shrink-0">
-        <div className="w-8 h-8 bg-neutral-900 dark:bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-white dark:text-neutral-900 text-xs font-black">CH</span>
-        </div>
-        {!collapsed && (
-          <span className="ml-3 font-bold text-neutral-900 dark:text-white text-sm tracking-tight">Company Hub</span>
+        {logoUrl ? (
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-white dark:bg-neutral-900">
+            <img src={resolveImageUrl(logoUrl)} alt={orgName} className="w-full h-full object-contain" />
+          </div>
+        ) : (
+          <div className="w-8 h-8 bg-neutral-900 dark:bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+            <span className="text-white dark:text-neutral-900 text-xs font-black">{initials}</span>
+          </div>
         )}
-        <button onClick={onToggleCollapse} className="ml-auto text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-400">
+        {!collapsed && (
+          <span className="ml-3 font-bold text-neutral-900 dark:text-white text-sm tracking-tight truncate">{orgName}</span>
+        )}
+        <button onClick={onToggleCollapse} className="ml-auto text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-400 flex-shrink-0">
           <ChevronLeft size={16} className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>

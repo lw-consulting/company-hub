@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPatch, resolveImageUrl } from '../../../lib/api';
+import { api, apiGet, apiPost, apiPatch, resolveImageUrl } from '../../../lib/api';
 import { useAuthStore } from '../../../stores/auth.store';
-import { X, Image, Video, File, BarChart3, Smile, Trash2 } from 'lucide-react';
+import { X, Image, Video, File, BarChart3, Smile, Trash2, Loader2 } from 'lucide-react';
 import { GRADIENTS, EMOJI_BACKGROUNDS, getBackgroundStyle, getBackgroundEmoji } from './PostBackgrounds';
+
+interface MediaItem {
+  url: string;
+  mimetype: string;
+  filename: string;
+  size: number;
+}
 
 interface Forum { id: string; name: string; }
 interface ForumGroup { id: string; name: string; forums: Forum[]; }
@@ -34,6 +41,36 @@ export default function CreatePostModal({ onClose, defaultForumId, editingPost }
   const [showPollForm, setShowPollForm] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [mediaError, setMediaError] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMediaUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingMedia(true);
+    setMediaError('');
+    try {
+      const uploaded: MediaItem[] = [];
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const result = await api<MediaItem>('/files/post-media', { method: 'POST', body: fd });
+        uploaded.push(result);
+      }
+      setMedia(prev => [...prev, ...uploaded]);
+    } catch (e: any) {
+      setMediaError(e?.message || 'Upload fehlgeschlagen');
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setMedia(prev => prev.filter((_, i) => i !== index));
+  };
 
   const { data: forums } = useQuery({
     queryKey: ['community-forums'],
@@ -55,12 +92,13 @@ export default function CreatePostModal({ onClose, defaultForumId, editingPost }
   const mutation = isEdit ? updateMut : createMut;
 
   const handleSubmit = () => {
-    if (!content.trim()) return;
+    if (!content.trim() && media.length === 0) return;
     if (isEdit) {
       updateMut.mutate({ content, background });
     } else {
       const data: any = {
         content, postType, forumId: forumId || undefined, background,
+        mediaUrls: media.map(m => m.url),
       };
       if (showPollForm && pollQuestion && pollOptions.filter(o => o.trim()).length >= 2) {
         data.poll = { question: pollQuestion, options: pollOptions.filter(o => o.trim()) };
@@ -68,6 +106,9 @@ export default function CreatePostModal({ onClose, defaultForumId, editingPost }
       createMut.mutate(data);
     }
   };
+
+  const isImageMime = (mt: string) => mt.startsWith('image/');
+  const isVideoMime = (mt: string) => mt.startsWith('video/');
 
   const bgStyle = getBackgroundStyle(background);
   const bgEmoji = getBackgroundEmoji(background);
@@ -128,6 +169,38 @@ export default function CreatePostModal({ onClose, defaultForumId, editingPost }
               onChange={(e) => setContent(e.target.value)}
               autoFocus
             />
+          )}
+
+          {/* Media preview */}
+          {media.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {media.map((m, i) => (
+                <div key={i} className="relative group rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
+                  {isImageMime(m.mimetype) ? (
+                    <img src={resolveImageUrl(m.url)} alt={m.filename} className="w-full h-32 object-cover" />
+                  ) : isVideoMime(m.mimetype) ? (
+                    <video src={resolveImageUrl(m.url)} className="w-full h-32 object-cover" />
+                  ) : (
+                    <div className="w-full h-32 flex flex-col items-center justify-center p-3">
+                      <File size={28} className="text-neutral-400 mb-1" />
+                      <span className="text-xs text-neutral-600 dark:text-neutral-300 truncate max-w-full">{m.filename}</span>
+                      <span className="text-[10px] text-neutral-400 mt-0.5">{(m.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(i)}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mediaError && (
+            <div className="mt-3 p-2.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg">{mediaError}</div>
           )}
 
           {/* Poll form */}
@@ -191,17 +264,29 @@ export default function CreatePostModal({ onClose, defaultForumId, editingPost }
               <Smile size={18} />
             </button>
             <div className="flex-1" />
-            <span className="text-xs text-neutral-300">Füge etwas hinzu:</span>
-            <button className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400"><Image size={18} /></button>
-            <button className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400"><Video size={18} /></button>
-            <button className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400"><File size={18} /></button>
-            <button onClick={() => setShowPollForm(!showPollForm)}
+            <span className="text-xs text-neutral-300">
+              {uploadingMedia ? 'Hochladen...' : 'Füge etwas hinzu:'}
+            </span>
+            {uploadingMedia && <Loader2 size={16} className="text-neutral-400 animate-spin" />}
+            <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="hidden" onChange={(e) => handleMediaUpload(e.target.files)} />
+            <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={(e) => handleMediaUpload(e.target.files)} />
+            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" className="hidden" onChange={(e) => handleMediaUpload(e.target.files)} />
+            <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingMedia} className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 disabled:opacity-40" title="Bilder hinzufügen">
+              <Image size={18} />
+            </button>
+            <button type="button" onClick={() => videoInputRef.current?.click()} disabled={uploadingMedia} className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 disabled:opacity-40" title="Video hinzufügen">
+              <Video size={18} />
+            </button>
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia} className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 disabled:opacity-40" title="Datei hinzufügen">
+              <File size={18} />
+            </button>
+            <button type="button" onClick={() => setShowPollForm(!showPollForm)}
               className={`p-2 rounded-lg transition-colors ${showPollForm ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400'}`}>
               <BarChart3 size={18} />
             </button>
           </div>
 
-          <button onClick={handleSubmit} disabled={!content.trim() || mutation.isPending}
+          <button onClick={handleSubmit} disabled={(!content.trim() && media.length === 0) || mutation.isPending || uploadingMedia}
             className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all disabled:opacity-40"
             style={{ backgroundColor: '#22c55e' }}>
             {mutation.isPending ? (isEdit ? 'Speichern...' : 'Wird gepostet...') : (isEdit ? 'Änderungen speichern ✓' : 'Posten ➤')}

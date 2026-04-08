@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPatch } from '../../lib/api';
-import { Save, Palette, Building2, Clock, AlertCircle, Check } from 'lucide-react';
+import { api, apiGet, apiPatch, resolveImageUrl } from '../../lib/api';
+import { useOrgStore } from '../../stores/org.store';
+import { Save, Palette, Building2, Clock, Check, Upload, X } from 'lucide-react';
 
 interface Organization {
   id: string;
@@ -21,8 +22,10 @@ interface Organization {
 
 export default function OrganizationPage() {
   const queryClient = useQueryClient();
+  const { setBranding, fetchBranding } = useOrgStore();
   const [form, setForm] = useState<Partial<Organization>>({});
   const [saved, setSaved] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: org, isLoading } = useQuery({
     queryKey: ['organization'],
@@ -39,18 +42,42 @@ export default function OrganizationPage() {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      // Update CSS variables live
-      if (data.primaryColor) {
-        document.documentElement.style.setProperty('--color-primary', data.primaryColor);
-      }
-      if (data.secondaryColor) {
-        document.documentElement.style.setProperty('--color-secondary', data.secondaryColor);
-      }
-      if (data.accentColor) {
-        document.documentElement.style.setProperty('--color-accent', data.accentColor);
-      }
+      // Sync branding store + CSS vars
+      setBranding({
+        name: data.name,
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
+        accentColor: data.accentColor,
+      });
+      if (data.primaryColor) document.documentElement.style.setProperty('--color-primary', data.primaryColor);
+      if (data.secondaryColor) document.documentElement.style.setProperty('--color-secondary', data.secondaryColor);
+      if (data.accentColor) document.documentElement.style.setProperty('--color-accent', data.accentColor);
     },
   });
+
+  const logoUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return api<{ logoUrl: string }>('/files/logo', { method: 'POST', body: fd });
+    },
+    onSuccess: (data) => {
+      setForm((prev) => ({ ...prev, logoUrl: data.logoUrl }));
+      setBranding({ logoUrl: data.logoUrl });
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      fetchBranding();
+    },
+  });
+
+  const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) logoUploadMutation.mutate(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveLogo = () => {
+    setForm({ ...form, logoUrl: null });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,13 +144,48 @@ export default function OrganizationPage() {
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="label">Logo URL</label>
-              <input
-                className="input"
-                placeholder="https://..."
-                value={form.logoUrl || ''}
-                onChange={(e) => setForm({ ...form, logoUrl: e.target.value || null })}
-              />
+              <label className="label">Logo</label>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {form.logoUrl ? (
+                    <img
+                      src={resolveImageUrl(form.logoUrl)}
+                      alt="Logo"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <Building2 size={28} className="text-neutral-300 dark:text-neutral-600" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={handleLogoFile}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="btn-secondary"
+                    disabled={logoUploadMutation.isPending}
+                  >
+                    <Upload size={14} />
+                    {logoUploadMutation.isPending ? 'Wird hochgeladen...' : form.logoUrl ? 'Logo ersetzen' : 'Logo hochladen'}
+                  </button>
+                  {form.logoUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+                    >
+                      <X size={12} /> Logo entfernen
+                    </button>
+                  )}
+                  <p className="text-xs text-neutral-400">PNG, JPG, WebP oder SVG, max. 2MB</p>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <ColorPicker
