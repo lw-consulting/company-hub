@@ -285,7 +285,7 @@ export default function OrganizationPage() {
                   value={form.breakDurationMinutes || 30}
                   onChange={(e) => setForm({ ...form, breakDurationMinutes: Number(e.target.value) })}
                 />
-                <p className="text-xs text-neutral-400 mt-1">Standard: 30 Min</p>
+                <p className="text-xs text-neutral-400 mt-1">Standard: 30 Min. In Österreich gilt bei mehr als 6 Stunden jedenfalls eine Mindestpause von 30 Minuten; höhere Werte wirken als strengere Firmenregel.</p>
               </div>
             </div>
           </div>

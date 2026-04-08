@@ -31,3 +31,27 @@ export const timeEntries = pgTable(
     index('idx_time_entries_org').on(table.orgId),
   ]
 );
+
+export const timeEntryBreaks = pgTable(
+  'time_entry_breaks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    timeEntryId: uuid('time_entry_id')
+      .notNull()
+      .references(() => timeEntries.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_time_entry_breaks_entry').on(table.timeEntryId, table.startedAt),
+    index('idx_time_entry_breaks_user').on(table.userId, table.startedAt),
+  ],
+);

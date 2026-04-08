@@ -1,9 +1,83 @@
-import { eq, and, gte, lte, isNull, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull, desc, inArray, asc } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { timeEntries } from '../../db/schema/time-tracking.js';
+import { timeEntries, timeEntryBreaks } from '../../db/schema/time-tracking.js';
 import { organizations } from '../../db/schema/organizations.js';
 import { users } from '../../db/schema/users.js';
 import { AppError, ConflictError, NotFoundError } from '../../lib/errors.js';
+import { calculateActualBreakMinutes, calculateBookedBreakMinutes } from './time-tracking.logic.js';
+
+async function getBreakPolicy(orgId: string) {
+  const [org] = await db
+    .select({
+      breakAfterMinutes: organizations.breakAfterMinutes,
+      breakDurationMinutes: organizations.breakDurationMinutes,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  return {
+    companyThresholdMinutes: org?.breakAfterMinutes ?? 360,
+    companyMinBreakMinutes: org?.breakDurationMinutes ?? 30,
+  };
+}
+
+async function getBreaksByEntryIds(entryIds: string[]) {
+  const map = new Map<string, typeof timeEntryBreaks.$inferSelect[]>();
+  if (entryIds.length === 0) {
+    return map;
+  }
+
+  const breaks = await db
+    .select()
+    .from(timeEntryBreaks)
+    .where(inArray(timeEntryBreaks.timeEntryId, entryIds))
+    .orderBy(asc(timeEntryBreaks.startedAt));
+
+  for (const item of breaks) {
+    const current = map.get(item.timeEntryId) ?? [];
+    current.push(item);
+    map.set(item.timeEntryId, current);
+  }
+
+  return map;
+}
+
+function serializeBreaks(
+  breaks: typeof timeEntryBreaks.$inferSelect[],
+  asOf: Date,
+) {
+  return breaks.map((entryBreak) => ({
+    ...entryBreak,
+    durationMinutes: Math.max(
+      0,
+      Math.round(((entryBreak.endedAt ?? asOf).getTime() - entryBreak.startedAt.getTime()) / 60000),
+    ),
+  }));
+}
+
+async function decorateEntry(entry: typeof timeEntries.$inferSelect, asOf: Date = new Date()) {
+  const breaksByEntry = await getBreaksByEntryIds([entry.id]);
+  const breaks = breaksByEntry.get(entry.id) ?? [];
+  const actualBreakMinutes = calculateActualBreakMinutes(breaks, asOf);
+  const openBreak = breaks.find((item) => item.endedAt === null) ?? null;
+  const durationMinutes = entry.clockOut
+    ? Math.round((entry.clockOut.getTime() - entry.clockIn.getTime()) / 60000)
+    : Math.round((asOf.getTime() - entry.clockIn.getTime()) / 60000);
+  const effectiveBreakMinutes = entry.clockOut
+    ? entry.breakMinutes
+    : calculateBookedBreakMinutes(durationMinutes, actualBreakMinutes, await getBreakPolicy(entry.orgId));
+
+  return {
+    ...entry,
+    breakMinutes: entry.clockOut ? entry.breakMinutes : actualBreakMinutes,
+    actualBreakMinutes,
+    effectiveBreakMinutes,
+    isOnBreak: Boolean(openBreak),
+    activeBreakStartedAt: openBreak?.startedAt ?? null,
+    breaks: serializeBreaks(breaks, asOf),
+  };
+}
 
 /** Clock in - creates a new time entry without clockOut */
 export async function clockIn(userId: string, orgId: string, notes?: string) {
@@ -44,26 +118,28 @@ export async function clockOut(userId: string, orgId: string, notes?: string) {
   }
 
   const now = new Date();
-  const durationMinutes = (now.getTime() - active.clockIn.getTime()) / 60000;
-
-  // Get org settings for auto-break
-  const [org] = await db
-    .select({
-      breakAfterMinutes: organizations.breakAfterMinutes,
-      breakDurationMinutes: organizations.breakDurationMinutes,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, orgId))
+  const [openBreak] = await db
+    .select()
+    .from(timeEntryBreaks)
+    .where(and(eq(timeEntryBreaks.timeEntryId, active.id), isNull(timeEntryBreaks.endedAt)))
     .limit(1);
 
-  let breakMinutes = active.breakMinutes;
-  let autoBreakApplied = false;
-
-  // Auto-break: if duration >= threshold and no/insufficient break logged
-  if (org && durationMinutes >= org.breakAfterMinutes && breakMinutes < org.breakDurationMinutes) {
-    breakMinutes = org.breakDurationMinutes;
-    autoBreakApplied = true;
+  if (openBreak) {
+    await db
+      .update(timeEntryBreaks)
+      .set({
+        endedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(timeEntryBreaks.id, openBreak.id));
   }
+
+  const breaksByEntry = await getBreaksByEntryIds([active.id]);
+  const actualBreakMinutes = calculateActualBreakMinutes(breaksByEntry.get(active.id) ?? [], now);
+  const durationMinutes = Math.round((now.getTime() - active.clockIn.getTime()) / 60000);
+  const breakPolicy = await getBreakPolicy(orgId);
+  const breakMinutes = calculateBookedBreakMinutes(durationMinutes, actualBreakMinutes, breakPolicy);
+  const autoBreakApplied = breakMinutes > actualBreakMinutes;
 
   const updateData: Record<string, any> = {
     clockOut: now,
@@ -79,7 +155,7 @@ export async function clockOut(userId: string, orgId: string, notes?: string) {
     .where(eq(timeEntries.id, active.id))
     .returning();
 
-  return entry;
+  return decorateEntry(entry, now);
 }
 
 /** Get current active entry (clocked in but not out) */
@@ -90,7 +166,11 @@ export async function getActiveEntry(userId: string) {
     .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.clockOut)))
     .limit(1);
 
-  return active || null;
+  if (!active) {
+    return null;
+  }
+
+  return decorateEntry(active);
 }
 
 /** Get entries for a date range */
@@ -102,7 +182,7 @@ export async function getEntries(
   const start = new Date(startDate + 'T00:00:00');
   const end = new Date(endDate + 'T23:59:59');
 
-  return db
+  const entries = await db
     .select()
     .from(timeEntries)
     .where(
@@ -113,6 +193,20 @@ export async function getEntries(
       )
     )
     .orderBy(desc(timeEntries.clockIn));
+
+  const breaksByEntry = await getBreaksByEntryIds(entries.map((entry) => entry.id));
+  return entries.map((entry) => {
+    const breaks = breaksByEntry.get(entry.id) ?? [];
+    const asOf = entry.clockOut ?? new Date();
+    return {
+      ...entry,
+      actualBreakMinutes: calculateActualBreakMinutes(breaks, asOf),
+      effectiveBreakMinutes: entry.breakMinutes,
+      isOnBreak: false,
+      activeBreakStartedAt: null,
+      breaks: serializeBreaks(breaks, asOf),
+    };
+  });
 }
 
 /** Calculate working hours summary for a period */
@@ -207,7 +301,10 @@ export async function updateEntry(
 
   if (data.clockIn) updateData.clockIn = new Date(data.clockIn);
   if (data.clockOut) updateData.clockOut = new Date(data.clockOut);
-  if (data.breakMinutes !== undefined) updateData.breakMinutes = data.breakMinutes;
+  if (data.breakMinutes !== undefined) {
+    updateData.breakMinutes = data.breakMinutes;
+    updateData.autoBreakApplied = false;
+  }
   if (data.notes) updateData.notes = data.notes;
 
   const [entry] = await db
@@ -248,7 +345,10 @@ export async function updateOwnEntry(
 
   if (data.clockIn) updateData.clockIn = new Date(data.clockIn);
   if (data.clockOut) updateData.clockOut = new Date(data.clockOut);
-  if (data.breakMinutes !== undefined) updateData.breakMinutes = data.breakMinutes;
+  if (data.breakMinutes !== undefined) {
+    updateData.breakMinutes = data.breakMinutes;
+    updateData.autoBreakApplied = false;
+  }
   if (data.notes !== undefined) updateData.notes = data.notes;
 
   const [entry] = await db
@@ -272,16 +372,90 @@ export async function addBreak(userId: string, minutes: number) {
 
   if (!active) throw new ConflictError('Nicht eingestempelt. Bitte zuerst "Kommen" buchen.');
 
-  const [entry] = await db
-    .update(timeEntries)
+  const [openBreak] = await db
+    .select({ id: timeEntryBreaks.id })
+    .from(timeEntryBreaks)
+    .where(and(eq(timeEntryBreaks.timeEntryId, active.id), isNull(timeEntryBreaks.endedAt)))
+    .limit(1);
+
+  if (openBreak) {
+    throw new ConflictError('Es läuft bereits eine Pause. Bitte zuerst die laufende Pause beenden.');
+  }
+
+  const now = new Date();
+  const startedAt = new Date(now.getTime() - minutes * 60000);
+  await db.insert(timeEntryBreaks).values({
+    timeEntryId: active.id,
+    userId: active.userId,
+    orgId: active.orgId,
+    startedAt,
+    endedAt: now,
+  });
+
+  return getActiveEntry(userId);
+}
+
+export async function startBreak(userId: string) {
+  const [active] = await db
+    .select()
+    .from(timeEntries)
+    .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.clockOut)))
+    .limit(1);
+
+  if (!active) {
+    throw new ConflictError('Nicht eingestempelt. Bitte zuerst "Kommen" buchen.');
+  }
+
+  const [openBreak] = await db
+    .select({ id: timeEntryBreaks.id })
+    .from(timeEntryBreaks)
+    .where(and(eq(timeEntryBreaks.timeEntryId, active.id), isNull(timeEntryBreaks.endedAt)))
+    .limit(1);
+
+  if (openBreak) {
+    throw new ConflictError('Es läuft bereits eine Pause.');
+  }
+
+  await db.insert(timeEntryBreaks).values({
+    timeEntryId: active.id,
+    userId: active.userId,
+    orgId: active.orgId,
+    startedAt: new Date(),
+  });
+
+  return getActiveEntry(userId);
+}
+
+export async function endBreak(userId: string) {
+  const [active] = await db
+    .select()
+    .from(timeEntries)
+    .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.clockOut)))
+    .limit(1);
+
+  if (!active) {
+    throw new ConflictError('Nicht eingestempelt. Bitte zuerst "Kommen" buchen.');
+  }
+
+  const [openBreak] = await db
+    .select()
+    .from(timeEntryBreaks)
+    .where(and(eq(timeEntryBreaks.timeEntryId, active.id), isNull(timeEntryBreaks.endedAt)))
+    .limit(1);
+
+  if (!openBreak) {
+    throw new ConflictError('Es läuft aktuell keine Pause.');
+  }
+
+  await db
+    .update(timeEntryBreaks)
     .set({
-      breakMinutes: active.breakMinutes + minutes,
+      endedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(timeEntries.id, active.id))
-    .returning();
+    .where(eq(timeEntryBreaks.id, openBreak.id));
 
-  return entry;
+  return getActiveEntry(userId);
 }
 
 /** Get team entries for a manager to review */

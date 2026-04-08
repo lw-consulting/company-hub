@@ -8,13 +8,25 @@ interface TimeEntry {
   clockIn: string;
   clockOut: string | null;
   breakMinutes: number;
+  actualBreakMinutes?: number;
+  effectiveBreakMinutes?: number;
   autoBreakApplied: boolean;
+  isOnBreak?: boolean;
+  activeBreakStartedAt?: string | null;
+  breaks?: TimeBreak[];
   notes: string | null;
   durationMinutes: number | null;
   netMinutes: number | null;
   userEdited?: boolean;
   userEditedAt?: string | null;
   correctedBy?: string | null;
+}
+
+interface TimeBreak {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes: number;
 }
 
 interface Summary {
@@ -62,7 +74,6 @@ function getWeekRange(offset: number) {
 export default function TimeTrackingPage() {
   const queryClient = useQueryClient();
   const [weekOffset, setWeekOffset] = useState(0);
-  const [showPauseModal, setShowPauseModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const week = getWeekRange(weekOffset);
 
@@ -95,9 +106,28 @@ export default function TimeTrackingPage() {
     },
   });
 
+  const startBreakMutation = useMutation({
+    mutationFn: () => apiPost('/time-tracking/breaks/start'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time-active'] });
+      queryClient.invalidateQueries({ queryKey: ['time-summary'] });
+    },
+  });
+
+  const endBreakMutation = useMutation({
+    mutationFn: () => apiPost('/time-tracking/breaks/end'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time-active'] });
+      queryClient.invalidateQueries({ queryKey: ['time-summary'] });
+    },
+  });
+
   const isClockedIn = !!activeEntry;
+  const isOnBreak = !!activeEntry?.isOnBreak;
   const balance = summary?.balanceHours || 0;
   const cumulativeBalance = balance + (summary?.initialBalanceHours || 0);
+  const documentedBreakMinutes = activeEntry?.actualBreakMinutes ?? activeEntry?.breakMinutes ?? 0;
+  const bookedBreakMinutes = activeEntry?.effectiveBreakMinutes ?? activeEntry?.breakMinutes ?? 0;
 
   return (
     <div className="space-y-6">
@@ -110,11 +140,33 @@ export default function TimeTrackingPage() {
               <div>
                 <p className="text-neutral-500 mt-1">
                   Gekommen um <span className="font-medium text-primary">{formatTime(activeEntry.clockIn)}</span>
-                  {activeEntry.breakMinutes > 0 && (
-                    <span className="ml-2 text-neutral-400">· Pause: {activeEntry.breakMinutes} min</span>
+                  {documentedBreakMinutes > 0 && (
+                    <span className="ml-2 text-neutral-400">· Dokumentierte Pause: {documentedBreakMinutes} min</span>
                   )}
                 </p>
-                <LiveTimer clockIn={activeEntry.clockIn} breakMinutes={activeEntry.breakMinutes} />
+                <LiveTimer clockIn={activeEntry.clockIn} breaks={activeEntry.breaks || []} />
+                {isOnBreak && activeEntry.activeBreakStartedAt && (
+                  <div className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-300">
+                    Pause läuft seit {formatTime(activeEntry.activeBreakStartedAt)}
+                  </div>
+                )}
+                {bookedBreakMinutes > documentedBreakMinutes && (
+                  <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    Bei Arbeitszeiten über 6 Stunden werden mindestens {bookedBreakMinutes} Minuten Pause gebucht.
+                  </div>
+                )}
+                {!!activeEntry.breaks?.length && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {activeEntry.breaks.map((entryBreak) => (
+                      <span
+                        key={entryBreak.id}
+                        className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                      >
+                        {formatBreakInterval(entryBreak)}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-neutral-500 mt-1">Noch nicht gekommen</p>
@@ -124,11 +176,12 @@ export default function TimeTrackingPage() {
           <div className="flex items-center gap-2">
             {isClockedIn && (
               <button
-                onClick={() => setShowPauseModal(true)}
-                className="flex items-center gap-2 px-5 py-4 rounded-xl font-semibold bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300 transition-all"
+                onClick={() => isOnBreak ? endBreakMutation.mutate() : startBreakMutation.mutate()}
+                disabled={startBreakMutation.isPending || endBreakMutation.isPending}
+                className="flex items-center gap-2 px-5 py-4 rounded-xl font-semibold bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300 transition-all disabled:opacity-50"
               >
                 <Coffee size={20} />
-                Pause
+                {isOnBreak ? 'Pause beenden' : 'Pause starten'}
               </button>
             )}
             <button
@@ -249,9 +302,17 @@ export default function TimeTrackingPage() {
                       )}
                     </td>
                     <td className="px-6 py-3 text-sm text-neutral-600 dark:text-neutral-300">
-                      {entry.breakMinutes} min
+                      <div className="font-medium text-neutral-700 dark:text-neutral-200">{entry.breakMinutes} min gebucht</div>
+                      {typeof entry.actualBreakMinutes === 'number' && entry.actualBreakMinutes !== entry.breakMinutes && (
+                        <div className="text-xs text-neutral-400">dokumentiert: {entry.actualBreakMinutes} min</div>
+                      )}
+                      {!!entry.breaks?.length && (
+                        <div className="mt-1 text-xs text-neutral-400">
+                          {entry.breaks.map(formatBreakInterval).join(', ')}
+                        </div>
+                      )}
                       {entry.autoBreakApplied && (
-                        <span title="Automatische Pause"><Coffee size={14} className="inline ml-1 text-amber-500" /></span>
+                        <span title="Mindestpause automatisch ergänzt"><Coffee size={14} className="inline ml-1 text-amber-500" /></span>
                       )}
                     </td>
                     <td className="px-6 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-200">
@@ -279,9 +340,6 @@ export default function TimeTrackingPage() {
         </div>
       </div>
 
-      {/* Pause Modal */}
-      {showPauseModal && <PauseModal onClose={() => setShowPauseModal(false)} />}
-
       {/* Edit Entry Modal */}
       {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
     </div>
@@ -289,7 +347,7 @@ export default function TimeTrackingPage() {
 }
 
 /** Live counter showing elapsed work time minus breaks */
-function LiveTimer({ clockIn, breakMinutes }: { clockIn: string; breakMinutes: number }) {
+function LiveTimer({ clockIn, breaks }: { clockIn: string; breaks: TimeBreak[] }) {
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -298,7 +356,7 @@ function LiveTimer({ clockIn, breakMinutes }: { clockIn: string; breakMinutes: n
   }, []);
 
   const elapsed = Math.floor((Date.now() - new Date(clockIn).getTime()) / 60000);
-  const net = Math.max(0, elapsed - breakMinutes);
+  const net = Math.max(0, elapsed - getActualBreakMinutes(breaks));
   return (
     <div className="text-3xl font-bold text-primary mt-2">
       {formatDuration(net)}
@@ -306,80 +364,18 @@ function LiveTimer({ clockIn, breakMinutes }: { clockIn: string; breakMinutes: n
   );
 }
 
-/** Modal to add a break */
-function PauseModal({ onClose }: { onClose: () => void }) {
-  const queryClient = useQueryClient();
-  const [minutes, setMinutes] = useState('30');
-  const [error, setError] = useState('');
+function getActualBreakMinutes(breaks: TimeBreak[]) {
+  return breaks.reduce((total, entryBreak) => {
+    const end = entryBreak.endedAt ? new Date(entryBreak.endedAt) : new Date();
+    const start = new Date(entryBreak.startedAt);
+    return total + Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+  }, 0);
+}
 
-  const addBreakMut = useMutation({
-    mutationFn: (m: number) => apiPost('/time-tracking/break', { minutes: m }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['time-active'] });
-      queryClient.invalidateQueries({ queryKey: ['time-summary'] });
-      onClose();
-    },
-    onError: (e: any) => setError(e?.message || 'Fehler beim Hinzufügen der Pause'),
-  });
-
-  const handleSubmit = () => {
-    const m = parseInt(minutes, 10);
-    if (isNaN(m) || m <= 0) {
-      setError('Bitte eine gültige Anzahl Minuten eingeben');
-      return;
-    }
-    setError('');
-    addBreakMut.mutate(m);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="card w-full max-w-sm p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
-            <Coffee size={20} className="text-amber-500" /> Pause buchen
-          </h3>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
-            <X size={20} />
-          </button>
-        </div>
-        <p className="text-sm text-neutral-500">Wie viele Minuten Pause möchtest du buchen?</p>
-        <div>
-          <label className="label">Pausendauer (Minuten)</label>
-          <input
-            type="number"
-            min="1"
-            className="input"
-            value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-            autoFocus
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {[15, 30, 45, 60].map((preset) => (
-            <button
-              key={preset}
-              onClick={() => setMinutes(String(preset))}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
-            >
-              {preset} min
-            </button>
-          ))}
-        </div>
-        {error && (
-          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg">
-            <AlertCircle size={14} /> {error}
-          </div>
-        )}
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Abbrechen</button>
-          <button onClick={handleSubmit} className="btn-primary" disabled={addBreakMut.isPending}>
-            {addBreakMut.isPending ? 'Speichern...' : <><Check size={16} /> Pause hinzufügen</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function formatBreakInterval(entryBreak: TimeBreak) {
+  const start = formatTime(entryBreak.startedAt);
+  const end = entryBreak.endedAt ? formatTime(entryBreak.endedAt) : 'läuft';
+  return `${start} - ${end}`;
 }
 
 /** Modal to edit an existing time entry */
@@ -462,7 +458,7 @@ function EditEntryModal({ entry, onClose }: { entry: TimeEntry; onClose: () => v
         </div>
 
         <div>
-          <label className="label">Pause (Minuten)</label>
+          <label className="label">Gebuchte Pause (Minuten)</label>
           <input type="number" min="0" className="input" value={breakMinutes} onChange={(e) => setBreakMinutes(e.target.value)} />
         </div>
 

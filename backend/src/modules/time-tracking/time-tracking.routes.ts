@@ -66,6 +66,22 @@ export async function timeTrackingRoutes(fastify: FastifyInstance) {
     return reply.send({ data: entry, statusCode: 200 });
   });
 
+  // POST /api/time-tracking/breaks/start
+  fastify.post('/api/time-tracking/breaks/start', {
+    preHandler: [modGuard],
+  }, async (request, reply) => {
+    const entry = await timeService.startBreak(request.user.sub);
+    return reply.send({ data: entry, statusCode: 200 });
+  });
+
+  // POST /api/time-tracking/breaks/end
+  fastify.post('/api/time-tracking/breaks/end', {
+    preHandler: [modGuard],
+  }, async (request, reply) => {
+    const entry = await timeService.endBreak(request.user.sub);
+    return reply.send({ data: entry, statusCode: 200 });
+  });
+
   // PATCH /api/time-tracking/entries/:id/own — user edits their own entry
   fastify.patch('/api/time-tracking/entries/:id/own', {
     preHandler: [modGuard],

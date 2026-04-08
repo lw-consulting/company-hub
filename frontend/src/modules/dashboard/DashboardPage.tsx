@@ -13,6 +13,14 @@ interface TimeEntry {
   clockIn: string;
   clockOut: string | null;
   breakMinutes: number;
+  actualBreakMinutes?: number;
+  isOnBreak?: boolean;
+  breaks?: Array<{
+    id: string;
+    startedAt: string;
+    endedAt: string | null;
+    durationMinutes: number;
+  }>;
 }
 
 interface Task {
@@ -105,7 +113,14 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
   let currentWorkTime = '--:--';
   if (activeEntry) {
     const elapsed = Math.floor((Date.now() - new Date(activeEntry.clockIn).getTime()) / 60000);
-    const net = Math.max(0, elapsed - activeEntry.breakMinutes);
+    const breakMinutes = activeEntry.breaks?.length
+      ? activeEntry.breaks.reduce((total, entryBreak) => {
+          const end = entryBreak.endedAt ? new Date(entryBreak.endedAt) : new Date();
+          const start = new Date(entryBreak.startedAt);
+          return total + Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+        }, 0)
+      : (activeEntry.actualBreakMinutes ?? activeEntry.breakMinutes);
+    const net = Math.max(0, elapsed - breakMinutes);
     currentWorkTime = formatDuration(net);
   } else if (todaySummary?.totalMinutes) {
     currentWorkTime = formatDuration(todaySummary.totalMinutes);
