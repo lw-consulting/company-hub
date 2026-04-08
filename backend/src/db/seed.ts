@@ -7,7 +7,6 @@ import { userModulePermissions } from './schema/user-module-permissions.js';
 import { leaveTypes } from './schema/leave.js';
 import { hashPassword } from '../lib/password.js';
 import { MODULES } from '@company-hub/shared';
-import { eq } from 'drizzle-orm';
 
 async function seed() {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });

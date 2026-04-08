@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, isNull, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { db } from '../../config/database.js';
 import { communityForumGroups, communityForums, communityPosts, communityComments, communityReactions, communityPolls, communityPollOptions, communityPollVotes, communityBookmarks, communityFollows, communityProfiles } from '../../db/schema/community.js';
 import { users } from '../../db/schema/users.js';
@@ -187,7 +187,6 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
   const pollRows = await db.select().from(communityPolls)
     .where(inArray(communityPolls.postId, postIds));
   const pollIds = pollRows.map((p) => p.id);
-  const pollByPostId = new Map(pollRows.map((p) => [p.postId, p]));
 
   // 8) Poll options + vote counts + user votes (only if there are polls)
   let pollDataByPostId = new Map<string, any>();

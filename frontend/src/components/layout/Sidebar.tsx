@@ -3,7 +3,7 @@ import { useOrgStore } from '../../stores/org.store';
 import { resolveImageUrl } from '../../lib/api';
 import { getNavigationItems, type NavItem } from '../../lib/module-registry';
 import { LogOut, ChevronLeft } from 'lucide-react';
-import type { Role, ModuleId } from '@company-hub/shared';
+import type { Role } from '@company-hub/shared';
 
 interface SidebarProps {
   currentPath: string;

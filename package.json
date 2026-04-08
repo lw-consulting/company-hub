@@ -5,22 +5,34 @@
   "workspaces": [
     "packages/*",
     "backend",
-    "frontend"
+    "frontend",
+    "mobile"
   ],
   "scripts": {
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",
+    "dev:mobile": "npm --prefix mobile run start",
     "build": "npm run build -w @company-hub/shared && npm run build -w backend && npm run build -w frontend",
     "build:shared": "npm run build -w @company-hub/shared",
     "build:backend": "npm run build -w backend",
     "build:frontend": "npm run build -w frontend",
     "lint": "eslint .",
     "typecheck": "tsc -b",
+    "typecheck:mobile": "npm --prefix mobile run typecheck",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "npm run test -w backend",
+    "test:frontend": "npm run test -w frontend",
     "db:generate": "npm run db:generate -w backend",
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "eslint": "^9.24.0"
   }
 }

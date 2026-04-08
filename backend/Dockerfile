@@ -4,11 +4,13 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json ./
+COPY package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
+COPY mobile/package.json ./mobile/
 
-# Install dependencies (no lock file yet, using npm install)
-RUN npm install
+# Install dependencies
+RUN npm ci
 
 # Copy source
 COPY packages/shared ./packages/shared
@@ -25,10 +27,12 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package.json ./
+COPY package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
+COPY mobile/package.json ./mobile/
 
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/

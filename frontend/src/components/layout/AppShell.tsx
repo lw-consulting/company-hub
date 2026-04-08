@@ -1,8 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { useAuthStore } from '../../stores/auth.store';
-import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
 
 // Lazy-loaded page components
 const DashboardPage = lazy(() => import('../../modules/dashboard/DashboardPage'));
@@ -48,7 +46,6 @@ export default function AppShell() {
   const [currentPath, setCurrentPath] = useState('/');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user } = useAuthStore();
 
   const handleNavigate = (path: string) => {
     setCurrentPath(path);
