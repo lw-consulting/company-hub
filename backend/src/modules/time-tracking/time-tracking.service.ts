@@ -262,7 +262,7 @@ export async function updateOwnEntry(
 
 /** Add break minutes to the currently active entry */
 export async function addBreak(userId: string, minutes: number) {
-  if (minutes <= 0) throw new AppError('Pause muss größer als 0 sein', 400, 'VALIDATION_ERROR');
+  if (minutes <= 0) throw new AppError(400, 'VALIDATION_ERROR', 'Pause muss größer als 0 sein');
 
   const [active] = await db
     .select()

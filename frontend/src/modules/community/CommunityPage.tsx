@@ -554,7 +554,7 @@ function ProfileView({ userId, onBack, onViewProfile, isOwn }: { userId: string;
                 </div>
               )}
               <input ref={avatarRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                onChange={handleAvatarFile />
+                onChange={handleAvatarFile} />
             </div>
           ) : (
             <Avatar url={profile.avatarUrl} firstName={profile.firstName} lastName={profile.lastName} size="xl" />
