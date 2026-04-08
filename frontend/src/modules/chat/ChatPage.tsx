@@ -93,8 +93,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [conversationSearch, setConversationSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
   const [composerText, setComposerText] = useState('');
   const [composerState, setComposerState] = useState<ComposerState>('idle');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -112,28 +114,28 @@ export default function ChatPage() {
   );
 
   const filteredConversations = useMemo(() => {
-    if (!search.trim()) {
+    if (!conversationSearch.trim()) {
       return conversations;
     }
-    const needle = search.trim().toLowerCase();
+    const needle = conversationSearch.trim().toLowerCase();
     return conversations.filter((conversation) => (
       conversation.title.toLowerCase().includes(needle) ||
       conversation.participants.some((participant) =>
         `${participant.firstName} ${participant.lastName}`.toLowerCase().includes(needle)
       )
     ));
-  }, [conversations, search]);
+  }, [conversations, conversationSearch]);
 
   const availableUsers = useMemo(() => {
-    if (!search.trim()) {
+    if (!userSearch.trim()) {
       return users;
     }
-    const needle = search.trim().toLowerCase();
+    const needle = userSearch.trim().toLowerCase();
     return users.filter((user) => (
       `${user.firstName} ${user.lastName}`.toLowerCase().includes(needle) ||
       user.email.toLowerCase().includes(needle)
     ));
-  }, [users, search]);
+  }, [users, userSearch]);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
@@ -142,12 +144,6 @@ export default function ChatPage() {
   useEffect(() => {
     void loadInitialData();
   }, []);
-
-  useEffect(() => {
-    if (showNewChat && users.length === 0) {
-      void loadAvailableUsers();
-    }
-  }, [showNewChat, users.length]);
 
   useEffect(() => {
     if (!selectedConversationId) {
@@ -290,11 +286,14 @@ export default function ChatPage() {
   }
 
   async function loadAvailableUsers() {
+    setUsersLoading(true);
     try {
       const userData = await apiGet<ChatUser[]>('/chat/users');
       setUsers(userData);
     } catch (err: any) {
       setError(err?.message || 'Benutzer konnten nicht geladen werden');
+    } finally {
+      setUsersLoading(false);
     }
   }
 
@@ -461,7 +460,13 @@ export default function ChatPage() {
               <p className="text-sm text-neutral-500">Private Gespräche und Team-Unterhaltungen in Echtzeit.</p>
             </div>
             <button
-              onClick={() => setShowNewChat((current) => !current)}
+              onClick={() => {
+                const nextOpen = !showNewChat;
+                setShowNewChat(nextOpen);
+                if (nextOpen && users.length === 0 && !usersLoading) {
+                  void loadAvailableUsers();
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-2xl bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
             >
               <MessageSquarePlus size={16} />
@@ -472,8 +477,8 @@ export default function ChatPage() {
           <label className="mt-4 flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
             <Search size={16} className="text-neutral-400" />
             <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={conversationSearch}
+              onChange={(event) => setConversationSearch(event.target.value)}
               placeholder="Chats oder Kollegen suchen"
               className="w-full bg-transparent text-sm outline-none"
             />
@@ -506,8 +511,26 @@ export default function ChatPage() {
               />
             )}
 
+            <label className="mt-3 flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-3 py-2">
+              <Search size={16} className="text-neutral-400" />
+              <input
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="Personen suchen"
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </label>
+
             <div className="mt-3 max-h-56 space-y-2 overflow-auto">
-              {availableUsers.map((user) => {
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-6 text-neutral-500">
+                  <Loader2 className="animate-spin" size={18} />
+                </div>
+              ) : availableUsers.length === 0 ? (
+                <div className="rounded-2xl bg-white px-3 py-4 text-sm text-neutral-500">
+                  {users.length === 0 ? 'Keine Personen geladen.' : 'Keine passenden Personen gefunden.'}
+                </div>
+              ) : availableUsers.map((user) => {
                 const selected = selectedUserIds.includes(user.id);
                 return (
                   <button
