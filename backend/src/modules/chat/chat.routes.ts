@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { measureAsync } from '../../lib/metrics.js';
 import { setupSse } from '../../lib/sse.js';
 import * as chatService from './chat.service.js';
 import { subscribeToChatEvents } from './chat-realtime.js';
@@ -8,12 +9,28 @@ export async function chatRoutes(fastify: FastifyInstance) {
   const modGuard = fastify.requireModule('chat');
 
   fastify.get('/api/chat/users', { preHandler: [modGuard] }, async (request, reply) => {
-    const users = await chatService.listChatUsers(request.user.orgId, request.user.sub);
+    const users = await measureAsync(
+      {
+        metric: 'chat.list_users',
+        logger: request.log,
+        slowMs: 250,
+        context: { userId: request.user.sub, orgId: request.user.orgId },
+      },
+      () => chatService.listChatUsers(request.user.orgId, request.user.sub)
+    );
     return reply.send({ data: users, statusCode: 200 });
   });
 
   fastify.get('/api/chat/conversations', { preHandler: [modGuard] }, async (request, reply) => {
-    const conversations = await chatService.listConversations(request.user.sub, request.user.orgId);
+    const conversations = await measureAsync(
+      {
+        metric: 'chat.list_conversations',
+        logger: request.log,
+        slowMs: 350,
+        context: { userId: request.user.sub, orgId: request.user.orgId },
+      },
+      () => chatService.listConversations(request.user.sub, request.user.orgId)
+    );
     return reply.send({ data: conversations, statusCode: 200 });
   });
 
@@ -32,17 +49,37 @@ export async function chatRoutes(fastify: FastifyInstance) {
   fastify.get('/api/chat/conversations/:id/messages', { preHandler: [modGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { before, limit } = request.query as { before?: string; limit?: string };
-    const messages = await chatService.listMessages(id, request.user.sub, request.user.orgId, {
-      before,
-      limit: limit ? Number(limit) : undefined,
-    });
+    const messages = await measureAsync(
+      {
+        metric: 'chat.list_messages',
+        logger: request.log,
+        slowMs: 300,
+        context: { userId: request.user.sub, conversationId: id, before: !!before, limit: limit ? Number(limit) : undefined },
+      },
+      () => chatService.listMessages(id, request.user.sub, request.user.orgId, {
+        before,
+        limit: limit ? Number(limit) : undefined,
+      })
+    );
     return reply.send({ data: messages, statusCode: 200 });
   });
 
   fastify.post('/api/chat/conversations/:id/messages', { preHandler: [modGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const payload = request.body as { content?: string };
-    const message = await chatService.sendMessage(id, request.user.sub, request.user.orgId, payload);
+    const message = await measureAsync(
+      {
+        metric: 'chat.send_message',
+        logger: request.log,
+        slowMs: 250,
+        context: {
+          userId: request.user.sub,
+          conversationId: id,
+          contentLength: payload.content?.trim().length ?? 0,
+        },
+      },
+      () => chatService.sendMessage(id, request.user.sub, request.user.orgId, payload)
+    );
     return reply.status(201).send({ data: message, statusCode: 201 });
   });
 
@@ -66,23 +103,44 @@ export async function chatRoutes(fastify: FastifyInstance) {
     }
 
     const buffer = await filePart.toBuffer();
-    const message = await chatService.uploadAttachmentMessage(
-      id,
-      request.user.sub,
-      request.user.orgId,
+    const message = await measureAsync(
       {
-        filename: filePart.filename,
-        mimetype: filePart.mimetype,
-        data: buffer,
+        metric: 'chat.upload_attachment',
+        logger: request.log,
+        slowMs: 600,
+        context: {
+          userId: request.user.sub,
+          conversationId: id,
+          mimeType: filePart.mimetype,
+          sizeBytes: buffer.length,
+        },
       },
-      content
+      () => chatService.uploadAttachmentMessage(
+        id,
+        request.user.sub,
+        request.user.orgId,
+        {
+          filename: filePart.filename,
+          mimetype: filePart.mimetype,
+          data: buffer,
+        },
+        content
+      )
     );
     return reply.status(201).send({ data: message, statusCode: 201 });
   });
 
   fastify.post('/api/chat/conversations/:id/read', { preHandler: [modGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    await chatService.markConversationRead(id, request.user.sub, request.user.orgId);
+    await measureAsync(
+      {
+        metric: 'chat.mark_read',
+        logger: request.log,
+        slowMs: 200,
+        context: { userId: request.user.sub, conversationId: id },
+      },
+      () => chatService.markConversationRead(id, request.user.sub, request.user.orgId)
+    );
     return reply.send({ data: { success: true }, statusCode: 200 });
   });
 
@@ -95,7 +153,15 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
   fastify.get('/api/chat/events/stream', { preHandler: [modGuard] }, async (request, reply) => {
     setupSse(reply);
-    await chatService.markChatDeliveredForUser(request.user.sub, request.user.orgId);
+    await measureAsync(
+      {
+        metric: 'chat.mark_delivered_stream_connect',
+        logger: request.log,
+        slowMs: 250,
+        context: { userId: request.user.sub, orgId: request.user.orgId },
+      },
+      () => chatService.markChatDeliveredForUser(request.user.sub, request.user.orgId)
+    );
 
     const sendEvent = (event: Record<string, unknown>) => {
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
