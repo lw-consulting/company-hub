@@ -101,3 +101,22 @@ export const chatAttachments = pgTable(
     index('idx_chat_attachments_org').on(table.orgId),
   ]
 );
+
+export const chatMessageReceipts = pgTable(
+  'chat_message_receipts',
+  {
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => chatMessages.id, { onDelete: 'cascade' }),
+    recipientId: uuid('recipient_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    readAt: timestamp('read_at', { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.messageId, table.recipientId] }),
+    index('idx_chat_receipts_recipient').on(table.recipientId),
+    index('idx_chat_receipts_message').on(table.messageId),
+  ]
+);

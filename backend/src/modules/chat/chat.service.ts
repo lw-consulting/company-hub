@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -8,6 +8,7 @@ import {
   chatAttachments,
   chatConversations,
   chatMessages,
+  chatMessageReceipts,
   chatParticipants,
   fileUploads,
   users,
@@ -58,6 +59,14 @@ export interface ChatMessagePayload {
   editedAt: string | null;
   sender: ChatUserSummary;
   attachments: ChatAttachmentPayload[];
+  receiptSummary: ChatReceiptSummary;
+}
+
+export interface ChatReceiptSummary {
+  recipientCount: number;
+  deliveredCount: number;
+  readCount: number;
+  status: 'sent' | 'delivered' | 'read';
 }
 
 function mapUserSummary(user: {
@@ -140,6 +149,91 @@ async function getConversationParticipants(conversationIds: string[]) {
     .orderBy(asc(users.firstName), asc(users.lastName));
 }
 
+function buildReceiptSummary(receipts: Array<{ deliveredAt: Date | null; readAt: Date | null }>): ChatReceiptSummary {
+  const recipientCount = receipts.length;
+  const deliveredCount = receipts.filter((receipt) => receipt.deliveredAt).length;
+  const readCount = receipts.filter((receipt) => receipt.readAt).length;
+
+  let status: ChatReceiptSummary['status'] = 'sent';
+  if (recipientCount > 0 && readCount === recipientCount) {
+    status = 'read';
+  } else if (recipientCount > 0 && deliveredCount === recipientCount) {
+    status = 'delivered';
+  }
+
+  return {
+    recipientCount,
+    deliveredCount,
+    readCount,
+    status,
+  };
+}
+
+async function getReceiptSummariesForMessageIds(messageIds: string[]) {
+  if (messageIds.length === 0) {
+    return new Map<string, ChatReceiptSummary>();
+  }
+
+  const receiptRows = await db
+    .select({
+      messageId: chatMessageReceipts.messageId,
+      deliveredAt: chatMessageReceipts.deliveredAt,
+      readAt: chatMessageReceipts.readAt,
+    })
+    .from(chatMessageReceipts)
+    .where(inArray(chatMessageReceipts.messageId, messageIds));
+
+  const grouped = new Map<string, Array<{ deliveredAt: Date | null; readAt: Date | null }>>();
+  for (const receipt of receiptRows) {
+    const list = grouped.get(receipt.messageId) ?? [];
+    list.push({ deliveredAt: receipt.deliveredAt, readAt: receipt.readAt });
+    grouped.set(receipt.messageId, list);
+  }
+
+  const summaries = new Map<string, ChatReceiptSummary>();
+  for (const messageId of messageIds) {
+    summaries.set(messageId, buildReceiptSummary(grouped.get(messageId) ?? []));
+  }
+  return summaries;
+}
+
+async function publishReceiptUpdates(messageIds: string[]) {
+  if (messageIds.length === 0) {
+    return;
+  }
+
+  const messageRows = await db
+    .select({
+      id: chatMessages.id,
+      conversationId: chatMessages.conversationId,
+    })
+    .from(chatMessages)
+    .where(inArray(chatMessages.id, messageIds));
+
+  if (messageRows.length === 0) {
+    return;
+  }
+
+  const receiptSummaryMap = await getReceiptSummariesForMessageIds(messageRows.map((row) => row.id));
+  const participantIdsByConversation = new Map<string, string[]>();
+
+  for (const message of messageRows) {
+    if (!participantIdsByConversation.has(message.conversationId)) {
+      participantIdsByConversation.set(
+        message.conversationId,
+        await getConversationParticipantIds(message.conversationId)
+      );
+    }
+
+    publishChatEvent(participantIdsByConversation.get(message.conversationId) ?? [], {
+      type: 'message.receipts',
+      conversationId: message.conversationId,
+      messageId: message.id,
+      receiptSummary: receiptSummaryMap.get(message.id),
+    });
+  }
+}
+
 async function hydrateMessages(messageRows: Array<{
   id: string;
   conversationId: string;
@@ -156,7 +250,7 @@ async function hydrateMessages(messageRows: Array<{
   const senderIds = [...new Set(messageRows.map((message) => message.senderId))];
   const messageIds = messageRows.map((message) => message.id);
 
-  const [senderRows, attachmentRows] = await Promise.all([
+  const [senderRows, attachmentRows, receiptSummaryMap] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -173,6 +267,7 @@ async function hydrateMessages(messageRows: Array<{
       .select()
       .from(chatAttachments)
       .where(inArray(chatAttachments.messageId, messageIds)),
+    getReceiptSummariesForMessageIds(messageIds),
   ]);
 
   const senderMap = new Map(senderRows.map((row) => [row.id, mapUserSummary(row)]));
@@ -199,6 +294,7 @@ async function hydrateMessages(messageRows: Array<{
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     sender: senderMap.get(message.senderId)!,
     attachments: attachmentMap.get(message.id) ?? [],
+    receiptSummary: receiptSummaryMap.get(message.id) ?? buildReceiptSummary([]),
   }));
 }
 
@@ -223,6 +319,8 @@ export async function listChatUsers(orgId: string, currentUserId: string) {
 }
 
 export async function listConversations(userId: string, orgId: string) {
+  await markMessagesDeliveredForUser(userId, orgId);
+
   const participantRows = await db
     .select({
       conversationId: chatParticipants.conversationId,
@@ -473,6 +571,58 @@ async function buildAndPublishConversationPayload(conversationId: string, messag
   );
 }
 
+async function createReceiptsForMessage(messageId: string, conversationId: string, senderId: string) {
+  const participantIds = await getConversationParticipantIds(conversationId);
+  const recipientIds = participantIds.filter((participantId) => participantId !== senderId);
+
+  if (recipientIds.length === 0) {
+    return;
+  }
+
+  await db.insert(chatMessageReceipts).values(
+    recipientIds.map((recipientId) => ({
+      messageId,
+      recipientId,
+    }))
+  );
+}
+
+async function markMessagesDeliveredForUser(userId: string, orgId: string, conversationId?: string) {
+  const receiptRows = await db
+    .select({
+      messageId: chatMessageReceipts.messageId,
+    })
+    .from(chatMessageReceipts)
+    .innerJoin(chatMessages, eq(chatMessages.id, chatMessageReceipts.messageId))
+    .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+    .where(
+      and(
+        eq(chatMessageReceipts.recipientId, userId),
+        eq(chatConversations.orgId, orgId),
+        conversationId ? eq(chatMessages.conversationId, conversationId) : undefined,
+        isNull(chatMessageReceipts.deliveredAt)
+      )
+    );
+
+  const messageIds = [...new Set(receiptRows.map((row) => row.messageId))];
+  if (messageIds.length === 0) {
+    return;
+  }
+
+  await db
+    .update(chatMessageReceipts)
+    .set({ deliveredAt: new Date() })
+    .where(
+      and(
+        eq(chatMessageReceipts.recipientId, userId),
+        inArray(chatMessageReceipts.messageId, messageIds),
+        isNull(chatMessageReceipts.deliveredAt)
+      )
+    );
+
+  await publishReceiptUpdates(messageIds);
+}
+
 export async function sendMessage(
   conversationId: string,
   userId: string,
@@ -495,6 +645,8 @@ export async function sendMessage(
       messageType: 'text',
     })
     .returning();
+
+  await createReceiptsForMessage(message.id, conversationId, userId);
 
   await Promise.all([
     db
@@ -546,6 +698,8 @@ export async function uploadAttachmentMessage(
     })
     .returning();
 
+  await createReceiptsForMessage(message.id, conversationId, userId);
+
   const url = `/uploads/chat/${storedFilename}`;
 
   await Promise.all([
@@ -586,11 +740,44 @@ export async function uploadAttachmentMessage(
 
 export async function markConversationRead(conversationId: string, userId: string, orgId: string) {
   await assertConversationAccess(conversationId, userId, orgId);
+  await markMessagesDeliveredForUser(userId, orgId, conversationId);
 
-  await db
-    .update(chatParticipants)
-    .set({ lastReadAt: new Date() })
-    .where(and(eq(chatParticipants.conversationId, conversationId), eq(chatParticipants.userId, userId)));
+  const receiptRows = await db
+    .select({
+      messageId: chatMessageReceipts.messageId,
+    })
+    .from(chatMessageReceipts)
+    .innerJoin(chatMessages, eq(chatMessages.id, chatMessageReceipts.messageId))
+    .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+    .where(
+      and(
+        eq(chatMessageReceipts.recipientId, userId),
+        eq(chatConversations.orgId, orgId),
+        eq(chatMessages.conversationId, conversationId),
+        isNull(chatMessageReceipts.readAt)
+      )
+    );
+
+  const messageIds = [...new Set(receiptRows.map((row) => row.messageId))];
+
+  await Promise.all([
+    db
+      .update(chatParticipants)
+      .set({ lastReadAt: new Date() })
+      .where(and(eq(chatParticipants.conversationId, conversationId), eq(chatParticipants.userId, userId))),
+    messageIds.length > 0
+      ? db
+          .update(chatMessageReceipts)
+          .set({ deliveredAt: new Date(), readAt: new Date() })
+          .where(
+            and(
+              eq(chatMessageReceipts.recipientId, userId),
+              inArray(chatMessageReceipts.messageId, messageIds),
+              isNull(chatMessageReceipts.readAt)
+            )
+          )
+      : Promise.resolve(),
+  ]);
 
   const participantIds = await getConversationParticipantIds(conversationId);
   publishChatEvent(participantIds, {
@@ -599,6 +786,7 @@ export async function markConversationRead(conversationId: string, userId: strin
     userId,
     readAt: new Date().toISOString(),
   });
+  await publishReceiptUpdates(messageIds);
 }
 
 export async function renameConversation(conversationId: string, userId: string, orgId: string, title: string) {

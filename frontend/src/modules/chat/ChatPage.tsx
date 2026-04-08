@@ -31,6 +31,14 @@ interface ChatMessage {
   editedAt: string | null;
   sender: ChatUser;
   attachments: ChatAttachment[];
+  receiptSummary: ChatReceiptSummary;
+}
+
+interface ChatReceiptSummary {
+  recipientCount: number;
+  deliveredCount: number;
+  readCount: number;
+  status: 'sent' | 'delivered' | 'read';
 }
 
 interface ChatConversation {
@@ -184,6 +192,7 @@ export default function ChatPage() {
           const payload = JSON.parse(line.slice(6)) as
             | { type: 'message.created'; conversationId: string; message: ChatMessage }
             | { type: 'conversation.read'; conversationId: string; userId: string; readAt: string }
+            | { type: 'message.receipts'; conversationId: string; messageId: string; receiptSummary: ChatReceiptSummary }
             | { type: 'conversation.updated'; conversationId: string; title: string };
 
           if (payload.type === 'message.created') {
@@ -211,6 +220,28 @@ export default function ChatPage() {
                   : [...current, payload.message]
               ));
             }
+          }
+
+          if (payload.type === 'message.receipts') {
+            if (payload.conversationId === selectedConversationId) {
+              setMessages((current) => current.map((message) => (
+                message.id === payload.messageId
+                  ? { ...message, receiptSummary: payload.receiptSummary }
+                  : message
+              )));
+            }
+
+            setConversations((current) => current.map((conversation) => (
+              conversation.id === payload.conversationId && conversation.lastMessage?.id === payload.messageId
+                ? {
+                    ...conversation,
+                    lastMessage: {
+                      ...conversation.lastMessage,
+                      receiptSummary: payload.receiptSummary,
+                    },
+                  }
+                : conversation
+            )));
           }
 
           if (payload.type === 'conversation.updated') {
@@ -573,6 +604,7 @@ export default function ChatPage() {
                         )}
                         <div className={`mt-2 text-[11px] ${isOwn ? 'text-neutral-300' : 'text-neutral-500'}`}>
                           {formatRelative(message.createdAt)}
+                          {isOwn ? ` · ${getReceiptLabel(message.receiptSummary)}` : ''}
                         </div>
                       </div>
                     </div>
@@ -659,4 +691,21 @@ function getOwnUserId() {
   } catch {
     return '';
   }
+}
+
+function getReceiptLabel(receiptSummary: ChatReceiptSummary) {
+  if (receiptSummary.recipientCount === 0) {
+    return 'Gesendet';
+  }
+  if (receiptSummary.status === 'read') {
+    return receiptSummary.recipientCount > 1
+      ? `Gelesen ${receiptSummary.readCount}/${receiptSummary.recipientCount}`
+      : 'Gelesen';
+  }
+  if (receiptSummary.status === 'delivered') {
+    return receiptSummary.recipientCount > 1
+      ? `Zugestellt ${receiptSummary.deliveredCount}/${receiptSummary.recipientCount}`
+      : 'Zugestellt';
+  }
+  return 'Gesendet';
 }
