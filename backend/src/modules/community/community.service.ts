@@ -156,13 +156,13 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
         id: communityComments.id,
         content: communityComments.content,
         createdAt: communityComments.createdAt,
-        authorId: communityComments.userId,
+        authorId: communityComments.authorId,
         authorFirstName: users.firstName,
         authorLastName: users.lastName,
         authorAvatarUrl: users.avatarUrl,
       })
       .from(communityComments)
-      .innerJoin(users, eq(communityComments.userId, users.id))
+      .innerJoin(users, eq(communityComments.authorId, users.id))
       .where(eq(communityComments.postId, post.id))
       .orderBy(desc(communityComments.createdAt))
       .limit(1);
