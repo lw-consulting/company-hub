@@ -3,8 +3,8 @@ set -e
 
 echo "=== Company Hub Backend ==="
 
-echo "Initializing database tables..."
-node dist/db/init.js || echo "DB init completed"
+echo "Running database migrations..."
+node dist/db/migrate.js
 
 echo "Running seed..."
 node dist/db/seed.js || echo "Seed step completed (may already exist)"
