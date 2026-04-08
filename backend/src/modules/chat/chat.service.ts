@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -335,18 +335,51 @@ export async function listConversations(userId: string, orgId: string) {
     return [];
   }
 
-  const [conversationRows, allParticipants, allMessageRows] = await Promise.all([
+  const [conversationRows, allParticipants, lastMessageResult, unreadCountRows] = await Promise.all([
     db
       .select()
       .from(chatConversations)
       .where(inArray(chatConversations.id, conversationIds))
       .orderBy(desc(chatConversations.lastMessageAt)),
     getConversationParticipants(conversationIds),
+    db.execute(sql<{
+      id: string;
+      conversationId: string;
+      senderId: string;
+      content: string;
+      messageType: string;
+      createdAt: Date;
+      editedAt: Date | null;
+    }>`
+      select distinct on (${chatMessages.conversationId})
+        ${chatMessages.id} as "id",
+        ${chatMessages.conversationId} as "conversationId",
+        ${chatMessages.senderId} as "senderId",
+        ${chatMessages.content} as "content",
+        ${chatMessages.messageType} as "messageType",
+        ${chatMessages.createdAt} as "createdAt",
+        ${chatMessages.editedAt} as "editedAt"
+      from ${chatMessages}
+      where ${inArray(chatMessages.conversationId, conversationIds)}
+      order by ${chatMessages.conversationId}, ${chatMessages.createdAt} desc
+    `),
     db
-      .select()
-      .from(chatMessages)
-      .where(inArray(chatMessages.conversationId, conversationIds))
-      .orderBy(desc(chatMessages.createdAt)),
+      .select({
+        conversationId: chatParticipants.conversationId,
+        unreadCount: sql<number>`count(${chatMessages.id})::int`,
+      })
+      .from(chatParticipants)
+      .innerJoin(chatConversations, eq(chatConversations.id, chatParticipants.conversationId))
+      .leftJoin(
+        chatMessages,
+        and(
+          eq(chatMessages.conversationId, chatParticipants.conversationId),
+          sql`${chatMessages.senderId} <> ${userId}::uuid`,
+          sql`${chatParticipants.lastReadAt} is null or ${chatMessages.createdAt} > ${chatParticipants.lastReadAt}`
+        )
+      )
+      .where(and(eq(chatParticipants.userId, userId), eq(chatConversations.orgId, orgId)))
+      .groupBy(chatParticipants.conversationId),
   ]);
 
   const participantState = new Map(participantRows.map((row) => [row.conversationId, row]));
@@ -368,25 +401,24 @@ export async function listConversations(userId: string, orgId: string) {
     participantsByConversation.set(participant.conversationId, list);
   }
 
-  const latestMessagePerConversation = new Map<string, (typeof allMessageRows)[number]>();
-  for (const message of allMessageRows) {
-    if (!latestMessagePerConversation.has(message.conversationId)) {
-      latestMessagePerConversation.set(message.conversationId, message);
-    }
-  }
+  const lastMessageRows = lastMessageResult.rows as Array<{
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    messageType: string;
+    createdAt: Date;
+    editedAt: Date | null;
+  }>;
 
-  const lastMessages = await hydrateMessages([...latestMessagePerConversation.values()]);
+  const lastMessages = await hydrateMessages(lastMessageRows);
   const lastMessageMap = new Map(lastMessages.map((message) => [message.conversationId, message]));
+  const unreadCountMap = new Map(unreadCountRows.map((row) => [row.conversationId, Number(row.unreadCount) || 0]));
 
   return conversationRows.map((conversation) => {
     const participants = participantsByConversation.get(conversation.id) ?? [];
     const otherParticipants = participants.filter((participant) => participant.id !== userId);
     const state = participantState.get(conversation.id)!;
-    const unreadCount = allMessageRows.filter((row) => (
-      row.conversationId === conversation.id &&
-      row.senderId !== userId &&
-      (!state.lastReadAt || row.createdAt > state.lastReadAt)
-    )).length;
 
     return {
       id: conversation.id,
@@ -397,7 +429,7 @@ export async function listConversations(userId: string, orgId: string) {
           : otherParticipants.map((participant) => `${participant.firstName} ${participant.lastName}`).join(', '),
       participants,
       lastMessage: lastMessageMap.get(conversation.id) ?? null,
-      unreadCount,
+      unreadCount: unreadCountMap.get(conversation.id) ?? 0,
       isMuted: state.isMuted,
       role: state.role,
       updatedAt: conversation.updatedAt.toISOString(),
@@ -552,7 +584,7 @@ async function buildAndPublishConversationPayload(conversationId: string, messag
     message,
   });
 
-  await Promise.all(
+  void Promise.all(
     participantIds
       .filter((participantId) => participantId !== actorUserId)
       .map((participantId) =>
@@ -566,7 +598,9 @@ async function buildAndPublishConversationPayload(conversationId: string, messag
           sendEmailNotification: false,
         })
       )
-  );
+  ).catch((error) => {
+    console.error('Chat notifications failed', error);
+  });
 }
 
 async function createReceiptsForMessage(messageId: string, conversationId: string, senderId: string) {
