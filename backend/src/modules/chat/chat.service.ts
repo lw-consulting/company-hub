@@ -319,8 +319,6 @@ export async function listChatUsers(orgId: string, currentUserId: string) {
 }
 
 export async function listConversations(userId: string, orgId: string) {
-  await markMessagesDeliveredForUser(userId, orgId);
-
   const participantRows = await db
     .select({
       conversationId: chatParticipants.conversationId,
@@ -621,6 +619,10 @@ async function markMessagesDeliveredForUser(userId: string, orgId: string, conve
     );
 
   await publishReceiptUpdates(messageIds);
+}
+
+export async function markChatDeliveredForUser(userId: string, orgId: string, conversationId?: string) {
+  await markMessagesDeliveredForUser(userId, orgId, conversationId);
 }
 
 export async function sendMessage(

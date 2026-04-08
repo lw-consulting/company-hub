@@ -103,6 +103,8 @@ export default function ChatPage() {
   const [groupTitle, setGroupTitle] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const selectedConversationIdRef = useRef<string | null>(null);
+  const ownUserId = useMemo(() => getOwnUserId(), []);
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
@@ -134,8 +136,18 @@ export default function ChatPage() {
   }, [users, search]);
 
   useEffect(() => {
+    selectedConversationIdRef.current = selectedConversationId;
+  }, [selectedConversationId]);
+
+  useEffect(() => {
     void loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (showNewChat && users.length === 0) {
+      void loadAvailableUsers();
+    }
+  }, [showNewChat, users.length]);
 
   useEffect(() => {
     if (!selectedConversationId) {
@@ -203,9 +215,9 @@ export default function ChatPage() {
                       ...conversation,
                       lastMessage: payload.message,
                       unreadCount:
-                        selectedConversationId === payload.conversationId
+                        selectedConversationIdRef.current === payload.conversationId
                           ? 0
-                          : conversation.unreadCount + (payload.message.sender.id === getOwnUserId() ? 0 : 1),
+                          : conversation.unreadCount + (payload.message.sender.id === ownUserId ? 0 : 1),
                       lastMessageAt: payload.message.createdAt,
                     }
                   : conversation
@@ -213,7 +225,7 @@ export default function ChatPage() {
               return sortConversations(next);
             });
 
-            if (payload.conversationId === selectedConversationId) {
+            if (payload.conversationId === selectedConversationIdRef.current) {
               setMessages((current) => (
                 current.some((message) => message.id === payload.message.id)
                   ? current
@@ -223,7 +235,7 @@ export default function ChatPage() {
           }
 
           if (payload.type === 'message.receipts') {
-            if (payload.conversationId === selectedConversationId) {
+            if (payload.conversationId === selectedConversationIdRef.current) {
               setMessages((current) => current.map((message) => (
                 message.id === payload.messageId
                   ? { ...message, receiptSummary: payload.receiptSummary }
@@ -260,24 +272,29 @@ export default function ChatPage() {
       cancelled = true;
       controller?.abort();
     };
-  }, [selectedConversationId]);
+  }, [ownUserId]);
 
   async function loadInitialData() {
     setLoading(true);
     setError(null);
     try {
-      const [conversationData, userData] = await Promise.all([
-        apiGet<ChatConversation[]>('/chat/conversations'),
-        apiGet<ChatUser[]>('/chat/users'),
-      ]);
+      const conversationData = await apiGet<ChatConversation[]>('/chat/conversations');
       const ordered = sortConversations(conversationData);
       setConversations(ordered);
-      setUsers(userData);
       setSelectedConversationId((current) => current ?? ordered[0]?.id ?? null);
     } catch (err: any) {
       setError(err?.message || 'Chats konnten nicht geladen werden');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadAvailableUsers() {
+    try {
+      const userData = await apiGet<ChatUser[]>('/chat/users');
+      setUsers(userData);
+    } catch (err: any) {
+      setError(err?.message || 'Benutzer konnten nicht geladen werden');
     }
   }
 
@@ -291,7 +308,6 @@ export default function ChatPage() {
           ? { ...conversation, unreadCount: 0 }
           : conversation
       )));
-      await apiPost(`/chat/conversations/${conversationId}/read`);
     } catch (err: any) {
       setError(err?.message || 'Nachrichten konnten nicht geladen werden');
     } finally {
@@ -336,17 +352,66 @@ export default function ChatPage() {
 
     setComposerState('sending');
     setError(null);
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const optimisticMessage: ChatMessage = {
+      id: tempId,
+      conversationId: selectedConversationId,
+      content: composerText.trim(),
+      messageType: selectedFile ? 'attachment' : 'text',
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+      sender: {
+        id: ownUserId,
+        firstName: '',
+        lastName: '',
+        email: '',
+        avatarUrl: null,
+        department: null,
+        position: null,
+      },
+      attachments: selectedFile
+        ? [{
+            id: `temp-attachment-${tempId}`,
+            filename: selectedFile.name,
+            mimeType: selectedFile.type || 'application/octet-stream',
+            sizeBytes: selectedFile.size,
+            url: '',
+          }]
+        : [],
+      receiptSummary: {
+        recipientCount: Math.max((selectedConversation?.participants.length ?? 1) - 1, 0),
+        deliveredCount: 0,
+        readCount: 0,
+        status: 'sent',
+      },
+    };
+
+    setMessages((current) => [...current, optimisticMessage]);
+    setConversations((current) => sortConversations(current.map((conversation) => (
+      conversation.id === selectedConversationId
+        ? {
+            ...conversation,
+            lastMessage: optimisticMessage,
+            lastMessageAt: optimisticMessage.createdAt,
+            unreadCount: 0,
+          }
+        : conversation
+    ))));
+    setComposerText('');
+    setSelectedFile(null);
 
     try {
       let message: ChatMessage;
+      const fileToUpload = selectedFile;
+      const contentToSend = composerText.trim();
       if (selectedFile) {
         const token = await ensureAccessToken();
         if (!token) {
           throw new Error('Session abgelaufen');
         }
         const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('content', composerText.trim());
+        formData.append('file', fileToUpload!);
+        formData.append('content', contentToSend);
         const response = await fetch(`${API_BASE}/chat/conversations/${selectedConversationId}/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -359,13 +424,13 @@ export default function ChatPage() {
         message = payload.data as ChatMessage;
       } else {
         message = await apiPost<ChatMessage>(`/chat/conversations/${selectedConversationId}/messages`, {
-          content: composerText,
+          content: contentToSend,
         });
       }
 
-      setMessages((current) => (
-        current.some((entry) => entry.id === message.id) ? current : [...current, message]
-      ));
+      setMessages((current) => current.map((entry) => (
+        entry.id === tempId ? message : entry
+      )));
       setConversations((current) => sortConversations(current.map((conversation) => (
         conversation.id === selectedConversationId
           ? {
@@ -376,10 +441,8 @@ export default function ChatPage() {
             }
           : conversation
       ))));
-      setComposerText('');
-      setSelectedFile(null);
-      await apiPost(`/chat/conversations/${selectedConversationId}/read`);
     } catch (err: any) {
+      setMessages((current) => current.filter((entry) => entry.id !== tempId));
       setError(err?.message || 'Nachricht konnte nicht gesendet werden');
     } finally {
       setComposerState('idle');
@@ -505,7 +568,7 @@ export default function ChatPage() {
                     <Users size={18} />
                   </div>
                 ) : (
-                  <Avatar user={conversation.participants.find((participant) => participant.id !== getOwnUserId()) ?? conversation.participants[0]} />
+                  <Avatar user={conversation.participants.find((participant) => participant.id !== ownUserId) ?? conversation.participants[0]} />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
@@ -574,7 +637,7 @@ export default function ChatPage() {
                 <div className="py-12 text-center text-neutral-500">Noch keine Nachrichten in dieser Unterhaltung.</div>
               ) : (
                 messages.map((message) => {
-                  const isOwn = message.sender.id === getOwnUserId();
+                  const isOwn = message.sender.id === ownUserId;
                   return (
                     <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[80%] rounded-3xl px-4 py-3 ${isOwn ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-900'}`}>

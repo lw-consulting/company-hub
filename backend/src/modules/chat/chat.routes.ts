@@ -95,7 +95,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
   fastify.get('/api/chat/events/stream', { preHandler: [modGuard] }, async (request, reply) => {
     setupSse(reply);
-    await chatService.listConversations(request.user.sub, request.user.orgId);
+    await chatService.markChatDeliveredForUser(request.user.sub, request.user.orgId);
 
     const sendEvent = (event: Record<string, unknown>) => {
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
