@@ -1,6 +1,7 @@
 import { MODULES, ROLE_HIERARCHY, type ModuleId, type Role } from '@company-hub/shared';
 import {
   LayoutDashboard,
+  MessageSquare,
   Users,
   CheckSquare,
   Calendar,
@@ -29,6 +30,7 @@ export interface NavItem {
 
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
+  MessageSquare,
   Users,
   CheckSquare,
   Calendar,
@@ -40,6 +42,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 const PATH_MAP: Record<ModuleId, string> = {
   dashboard: '/',
+  chat: '/chat',
   community: '/community',
   tasks: '/tasks',
   calendar: '/calendar',

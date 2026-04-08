@@ -1,5 +1,6 @@
 export const MODULE_IDS = {
   DASHBOARD: 'dashboard',
+  CHAT: 'chat',
   AI_ASSISTANTS: 'ai-assistants',
   COMMUNITY: 'community',
   TIME_TRACKING: 'time-tracking',
@@ -32,13 +33,22 @@ export const MODULES: ModuleDefinition[] = [
     navOrder: 0,
   },
   {
+    id: MODULE_IDS.CHAT,
+    name: 'Chats',
+    description: 'Private Unterhaltungen & Gruppenchats',
+    icon: 'MessageSquare',
+    defaultEnabled: true,
+    navGroup: 'main',
+    navOrder: 1,
+  },
+  {
     id: MODULE_IDS.COMMUNITY,
     name: 'Community',
     description: 'Forum & Social Feed',
     icon: 'Users',
     defaultEnabled: true,
     navGroup: 'main',
-    navOrder: 1,
+    navOrder: 2,
   },
   {
     id: MODULE_IDS.TASKS,
@@ -47,7 +57,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: 'CheckSquare',
     defaultEnabled: true,
     navGroup: 'main',
-    navOrder: 2,
+    navOrder: 3,
   },
   {
     id: MODULE_IDS.CALENDAR,
@@ -56,7 +66,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: 'Calendar',
     defaultEnabled: true,
     navGroup: 'main',
-    navOrder: 3,
+    navOrder: 4,
   },
   {
     id: MODULE_IDS.TIME_TRACKING,

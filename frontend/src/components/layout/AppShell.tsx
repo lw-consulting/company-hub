@@ -4,6 +4,7 @@ import Header from './Header';
 
 // Lazy-loaded page components
 const DashboardPage = lazy(() => import('../../modules/dashboard/DashboardPage'));
+const ChatPage = lazy(() => import('../../modules/chat/ChatPage'));
 const AdminUsersPage = lazy(() => import('../../modules/admin/UsersPage'));
 const AdminOrgPage = lazy(() => import('../../modules/admin/OrganizationPage'));
 const TimeTrackingPage = lazy(() => import('../../modules/time-tracking/TimeTrackingPage'));
@@ -22,6 +23,7 @@ const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/community': 'Community',
+  '/chat': 'Chats',
   '/tasks': 'Aufgaben',
   '/calendar': 'Kalender',
   '/time-tracking': 'Zeiterfassung',
@@ -62,6 +64,8 @@ export default function AppShell() {
         return <DashboardPage onNavigate={handleNavigate} />;
       case '/admin/users':
         return <AdminUsersPage />;
+      case '/chat':
+        return <ChatPage />;
       case '/admin/organization':
         return <AdminOrgPage />;
       case '/time-tracking':
