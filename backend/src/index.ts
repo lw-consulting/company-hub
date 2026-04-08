@@ -36,6 +36,9 @@ const fastify = Fastify({
 // Security plugins
 await fastify.register(helmet, {
   contentSecurityPolicy: env.NODE_ENV === 'production' ? undefined : false,
+  // Allow cross-origin loading of static assets (uploaded avatars served from
+  // backend domain need to be loaded by frontend on a different domain).
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 });
 
 await fastify.register(cors, {
