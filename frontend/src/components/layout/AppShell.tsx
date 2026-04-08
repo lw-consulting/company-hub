@@ -96,7 +96,7 @@ export default function AppShell() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#faf9f7' }}>
+    <div className="min-h-screen bg-[#faf9f7] dark:bg-neutral-950">
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div
@@ -126,7 +126,7 @@ export default function AppShell() {
           onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
         />
 
-        <main className="p-6">
+        <main className="min-h-[calc(100vh-4rem)] bg-transparent p-6">
           <Suspense fallback={<PageLoader />}>
             {renderPage()}
           </Suspense>

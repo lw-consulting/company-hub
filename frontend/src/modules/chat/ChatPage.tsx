@@ -390,45 +390,45 @@ export default function ChatPage() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <aside className="rounded-3xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="border-b border-neutral-200 p-5">
+      <aside className="overflow-hidden rounded-3xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="border-b border-neutral-200 p-5 dark:border-neutral-800">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-neutral-900">Chats</h2>
-              <p className="text-sm text-neutral-500">Private Gespräche und Team-Unterhaltungen in Echtzeit.</p>
+              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Chats</h2>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Private Gespräche und Team-Unterhaltungen in Echtzeit.</p>
             </div>
             <button
               onClick={() => setShowNewChat((current) => !current)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
+              className="inline-flex items-center gap-2 rounded-2xl bg-neutral-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-neutral-900"
             >
               <MessageSquarePlus size={16} />
               Neu
             </button>
           </div>
 
-          <label className="mt-4 flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
-            <Search size={16} className="text-neutral-400" />
+          <label className="mt-4 flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
+            <Search size={16} className="text-neutral-400 dark:text-neutral-500" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Chats oder Kollegen suchen"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
           </label>
         </div>
 
         {showNewChat && (
-          <div className="border-b border-neutral-200 bg-neutral-50 p-4">
+          <div className="border-b border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950/70">
             <div className="flex gap-2">
               <button
                 onClick={() => setGroupMode(false)}
-                className={`rounded-full px-3 py-1.5 text-sm ${!groupMode ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600'}`}
+                className={`rounded-full px-3 py-1.5 text-sm ${!groupMode ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'}`}
               >
                 Direkt
               </button>
               <button
                 onClick={() => setGroupMode(true)}
-                className={`rounded-full px-3 py-1.5 text-sm ${groupMode ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600'}`}
+                className={`rounded-full px-3 py-1.5 text-sm ${groupMode ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'}`}
               >
                 Gruppe
               </button>
@@ -439,7 +439,7 @@ export default function ChatPage() {
                 value={groupTitle}
                 onChange={(event) => setGroupTitle(event.target.value)}
                 placeholder="Gruppenname"
-                className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none"
+                className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
               />
             )}
 
@@ -459,13 +459,13 @@ export default function ChatPage() {
                       ));
                     }}
                     className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left ${
-                      selected ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-800'
+                      selected ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-white text-neutral-800 dark:bg-neutral-900 dark:text-neutral-100'
                     }`}
                   >
                     <Avatar user={user} />
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{user.firstName} {user.lastName}</div>
-                      <div className={`truncate text-xs ${selected ? 'text-neutral-300' : 'text-neutral-500'}`}>{user.email}</div>
+                      <div className={`truncate text-xs ${selected ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500 dark:text-neutral-400'}`}>{user.email}</div>
                     </div>
                   </button>
                 );
@@ -476,7 +476,7 @@ export default function ChatPage() {
               <button
                 onClick={() => void createGroupConversation()}
                 disabled={!groupTitle.trim() || selectedUserIds.length === 0}
-                className="mt-3 w-full rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-300"
+                className="mt-3 w-full rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-300 dark:bg-white dark:text-neutral-900 dark:disabled:bg-neutral-700 dark:disabled:text-neutral-400"
               >
                 Gruppenchat erstellen
               </button>
@@ -486,22 +486,22 @@ export default function ChatPage() {
 
         <div className="max-h-[70vh] overflow-auto">
           {loading ? (
-            <div className="flex items-center justify-center p-8 text-neutral-500">
+            <div className="flex items-center justify-center p-8 text-neutral-500 dark:text-neutral-400">
               <Loader2 className="animate-spin" />
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="p-6 text-sm text-neutral-500">Noch keine Unterhaltungen vorhanden.</div>
+            <div className="p-6 text-sm text-neutral-500 dark:text-neutral-400">Noch keine Unterhaltungen vorhanden.</div>
           ) : (
             filteredConversations.map((conversation) => (
               <button
                 key={conversation.id}
                 onClick={() => setSelectedConversationId(conversation.id)}
                 className={`flex w-full items-start gap-3 border-b border-neutral-100 px-4 py-4 text-left ${
-                  conversation.id === selectedConversationId ? 'bg-neutral-50' : 'bg-white'
+                  conversation.id === selectedConversationId ? 'bg-neutral-50 dark:bg-neutral-800/70' : 'bg-white dark:bg-neutral-900'
                 }`}
               >
                 {conversation.type === 'group' ? (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-neutral-900 text-white">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
                     <Users size={18} />
                   </div>
                 ) : (
@@ -509,12 +509,12 @@ export default function ChatPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="truncate text-sm font-semibold text-neutral-900">{conversation.title}</div>
-                    <span className="shrink-0 text-xs text-neutral-400">
+                    <div className="truncate text-sm font-semibold text-neutral-900 dark:text-white">{conversation.title}</div>
+                    <span className="shrink-0 text-xs text-neutral-400 dark:text-neutral-500">
                       {conversation.lastMessageAt ? formatRelative(conversation.lastMessageAt) : ''}
                     </span>
                   </div>
-                  <div className="mt-1 truncate text-sm text-neutral-500">
+                  <div className="mt-1 truncate text-sm text-neutral-500 dark:text-neutral-400">
                     {conversation.lastMessage?.content || (conversation.lastMessage?.attachments.length ? 'Anhang' : 'Noch keine Nachrichten')}
                   </div>
                 </div>
@@ -529,17 +529,17 @@ export default function ChatPage() {
         </div>
       </aside>
 
-      <section className="flex min-h-[72vh] flex-col rounded-3xl border border-neutral-200 bg-white">
+      <section className="flex min-h-[72vh] flex-col rounded-3xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         {!selectedConversation ? (
-          <div className="flex flex-1 items-center justify-center p-10 text-center text-neutral-500">
+          <div className="flex flex-1 items-center justify-center p-10 text-center text-neutral-500 dark:text-neutral-400">
             Unterhaltung auswählen oder einen neuen Chat starten.
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4 dark:border-neutral-800">
               <div>
-                <div className="text-lg font-semibold text-neutral-900">{selectedConversation.title}</div>
-                <div className="text-sm text-neutral-500">
+                <div className="text-lg font-semibold text-neutral-900 dark:text-white">{selectedConversation.title}</div>
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">
                   {selectedConversation.participants.map((participant) => `${participant.firstName} ${participant.lastName}`).join(', ')}
                 </div>
               </div>
@@ -558,7 +558,7 @@ export default function ChatPage() {
                         : conversation
                     )));
                   }}
-                  className="rounded-2xl border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700"
+                  className="rounded-2xl border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
                   Gruppe umbenennen
                 </button>
@@ -567,19 +567,19 @@ export default function ChatPage() {
 
             <div className="flex-1 space-y-4 overflow-auto px-6 py-5">
               {messagesLoading ? (
-                <div className="flex items-center justify-center py-12 text-neutral-500">
+                <div className="flex items-center justify-center py-12 text-neutral-500 dark:text-neutral-400">
                   <Loader2 className="animate-spin" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="py-12 text-center text-neutral-500">Noch keine Nachrichten in dieser Unterhaltung.</div>
+                <div className="py-12 text-center text-neutral-500 dark:text-neutral-400">Noch keine Nachrichten in dieser Unterhaltung.</div>
               ) : (
                 messages.map((message) => {
                   const isOwn = message.sender.id === getOwnUserId();
                   return (
                     <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] rounded-3xl px-4 py-3 ${isOwn ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-900'}`}>
+                      <div className={`max-w-[80%] rounded-3xl px-4 py-3 ${isOwn ? 'bg-neutral-900 text-white dark:bg-[var(--color-accent)]' : 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100'}`}>
                         {!isOwn && (
-                          <div className="mb-1 text-xs font-semibold text-neutral-500">
+                          <div className="mb-1 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
                             {message.sender.firstName} {message.sender.lastName}
                           </div>
                         )}
@@ -592,17 +592,17 @@ export default function ChatPage() {
                                 href={resolveImageUrl(attachment.url)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className={`block rounded-2xl border px-3 py-2 text-sm ${isOwn ? 'border-white/20 bg-white/10' : 'border-neutral-200 bg-white'}`}
+                                className={`block rounded-2xl border px-3 py-2 text-sm ${isOwn ? 'border-white/20 bg-white/10 dark:border-black/10 dark:bg-black/10' : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'}`}
                               >
                                 <div className="font-medium">{attachment.filename}</div>
-                                <div className={`text-xs ${isOwn ? 'text-neutral-200' : 'text-neutral-500'}`}>
+                                <div className={`text-xs ${isOwn ? 'text-neutral-200 dark:text-white/75' : 'text-neutral-500 dark:text-neutral-400'}`}>
                                   {formatBytes(attachment.sizeBytes)}
                                 </div>
                               </a>
                             ))}
                           </div>
                         )}
-                        <div className={`mt-2 text-[11px] ${isOwn ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                        <div className={`mt-2 text-[11px] ${isOwn ? 'text-neutral-300 dark:text-white/70' : 'text-neutral-500 dark:text-neutral-400'}`}>
                           {formatRelative(message.createdAt)}
                           {isOwn ? ` · ${getReceiptLabel(message.receiptSummary)}` : ''}
                         </div>
@@ -614,19 +614,19 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-neutral-200 px-6 py-4">
+            <div className="border-t border-neutral-200 px-6 py-4 dark:border-neutral-800">
               {selectedFile && (
-                <div className="mb-3 inline-flex items-center gap-3 rounded-2xl bg-neutral-100 px-3 py-2 text-sm text-neutral-700">
+                <div className="mb-3 inline-flex items-center gap-3 rounded-2xl bg-neutral-100 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                   <Paperclip size={16} />
                   <span>{selectedFile.name}</span>
-                  <button onClick={() => setSelectedFile(null)} className="text-neutral-500">
+                  <button onClick={() => setSelectedFile(null)} className="text-neutral-500 dark:text-neutral-400">
                     <X size={14} />
                   </button>
                 </div>
               )}
 
               <div className="flex items-end gap-3">
-                <label className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border border-neutral-200 text-neutral-500">
+                <label className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border border-neutral-200 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                   <Paperclip size={18} />
                   <input
                     type="file"
@@ -646,18 +646,18 @@ export default function ChatPage() {
                   }}
                   rows={1}
                   placeholder="Nachricht schreiben..."
-                  className="min-h-12 flex-1 resize-none rounded-3xl border border-neutral-200 px-4 py-3 text-sm outline-none"
+                  className="min-h-12 flex-1 resize-none rounded-3xl border border-neutral-200 px-4 py-3 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                 />
 
                 <button
                   onClick={() => void sendCurrentMessage()}
                   disabled={composerState === 'sending' || (!composerText.trim() && !selectedFile)}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-900 text-white disabled:cursor-not-allowed disabled:bg-neutral-300"
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-900 text-white disabled:cursor-not-allowed disabled:bg-neutral-300 dark:bg-white dark:text-neutral-900 dark:disabled:bg-neutral-700 dark:disabled:text-neutral-400"
                 >
                   {composerState === 'sending' ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </button>
               </div>
-              {error && <div className="mt-3 text-sm text-rose-600">{error}</div>}
+              {error && <div className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</div>}
             </div>
           </>
         )}
