@@ -41,10 +41,11 @@ export async function deleteForumGroup(groupId: string) {
 
 // ============== POSTS ==============
 
-export async function getFeed(orgId: string, opts: { page?: number; pageSize?: number; forumId?: string; userId?: string } = {}) {
+export async function getFeed(orgId: string, opts: { page?: number; pageSize?: number; forumId?: string; userId?: string; currentUserId?: string } = {}) {
   const page = opts.page || 1;
   const pageSize = opts.pageSize || 20;
   const offset = (page - 1) * pageSize;
+  const currentUserId = opts.currentUserId;
 
   const conditions = [eq(communityPosts.orgId, orgId)];
   if (opts.forumId) conditions.push(eq(communityPosts.forumId, opts.forumId));
@@ -75,20 +76,32 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
     .limit(pageSize)
     .offset(offset);
 
-  // Get forum names + counts for each post
+  // Hydrate each post with full meta (poll, reactions, my reaction, latest comment, ...)
   const postsWithMeta = await Promise.all(posts.map(async (post) => {
-    let reactionCount = 0, commentCountVal = 0;
+    // Reaction counts grouped by type + total
+    let reactionCounts: Record<string, number> = {};
+    let totalReactions = 0;
     try {
-      const [rc] = await db.select({ count: sql<number>`count(*)::int` })
-        .from(communityReactions).where(eq(communityReactions.postId, post.id));
-      reactionCount = rc?.count || 0;
+      const reactions = await db.select({
+        reactionType: communityReactions.reactionType,
+        count: sql<number>`count(*)::int`,
+      }).from(communityReactions).where(eq(communityReactions.postId, post.id))
+        .groupBy(communityReactions.reactionType);
+      for (const r of reactions) {
+        reactionCounts[r.reactionType] = r.count;
+        totalReactions += r.count;
+      }
     } catch {}
+
+    // Comment count
+    let commentCountVal = 0;
     try {
       const [cc] = await db.select({ count: sql<number>`count(*)::int` })
         .from(communityComments).where(eq(communityComments.postId, post.id));
       commentCountVal = cc?.count || 0;
     } catch {}
 
+    // Forum name
     let forumName = null;
     try {
       if (post.forumId) {
@@ -98,12 +111,74 @@ export async function getFeed(orgId: string, opts: { page?: number; pageSize?: n
       }
     } catch {}
 
+    // Poll
+    let pollData = null;
+    try {
+      const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.postId, post.id)).limit(1);
+      if (poll) {
+        const options = await db.select().from(communityPollOptions)
+          .where(eq(communityPollOptions.pollId, poll.id))
+          .orderBy(communityPollOptions.sortOrder);
+        const optionsWithVotes = await Promise.all(options.map(async (opt) => {
+          const [voteCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(communityPollVotes).where(eq(communityPollVotes.optionId, opt.id));
+          let userVoted = false;
+          if (currentUserId) {
+            const [v] = await db.select({ id: communityPollVotes.id }).from(communityPollVotes)
+              .where(and(eq(communityPollVotes.optionId, opt.id), eq(communityPollVotes.userId, currentUserId))).limit(1);
+            userVoted = !!v;
+          }
+          return { ...opt, voteCount: voteCount?.count || 0, userVoted };
+        }));
+        const totalVotes = optionsWithVotes.reduce((s, o) => s + o.voteCount, 0);
+        pollData = { ...poll, options: optionsWithVotes, totalVotes };
+      }
+    } catch {}
+
+    // My reaction + bookmark
+    let myReaction: string | null = null;
+    let isBookmarked = false;
+    if (currentUserId) {
+      try {
+        const [r] = await db.select({ reactionType: communityReactions.reactionType }).from(communityReactions)
+          .where(and(eq(communityReactions.postId, post.id), eq(communityReactions.userId, currentUserId))).limit(1);
+        myReaction = r?.reactionType || null;
+        const [bm] = await db.select({ id: communityBookmarks.id }).from(communityBookmarks)
+          .where(and(eq(communityBookmarks.postId, post.id), eq(communityBookmarks.userId, currentUserId))).limit(1);
+        isBookmarked = !!bm;
+      } catch {}
+    }
+
+    // Latest comment (1) for inline preview
+    let latestComment: any = null;
+    try {
+      const [c] = await db.select({
+        id: communityComments.id,
+        content: communityComments.content,
+        createdAt: communityComments.createdAt,
+        authorId: communityComments.userId,
+        authorFirstName: users.firstName,
+        authorLastName: users.lastName,
+        authorAvatarUrl: users.avatarUrl,
+      })
+      .from(communityComments)
+      .innerJoin(users, eq(communityComments.userId, users.id))
+      .where(eq(communityComments.postId, post.id))
+      .orderBy(desc(communityComments.createdAt))
+      .limit(1);
+      latestComment = c || null;
+    } catch {}
+
     return {
       ...post,
       forumName,
-      reactionCounts: {} as Record<string, number>,
-      totalReactions: reactionCount,
+      reactionCounts,
+      totalReactions,
       commentCount: commentCountVal,
+      poll: pollData,
+      myReaction,
+      isBookmarked,
+      latestComment,
     };
   }));
 

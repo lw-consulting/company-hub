@@ -23,6 +23,10 @@ interface Post {
   reactionCounts: Record<string, number>; totalReactions: number;
   commentCount: number; myReaction?: string | null; isBookmarked?: boolean;
   poll?: any;
+  latestComment?: {
+    id: string; content: string; createdAt: string;
+    authorId: string; authorFirstName: string; authorLastName: string; authorAvatarUrl: string | null;
+  } | null;
 }
 interface Comment {
   id: string; content: string; parentId: string | null; createdAt: string;
@@ -330,6 +334,32 @@ function PostCard({ post, onViewProfile }: { post: Post; onViewProfile: (id: str
           </button>
         </div>
       </div>
+
+      {/* Inline latest comment preview (when comments exist and section is collapsed) */}
+      {!showComments && post.latestComment && (
+        <div className="border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 px-4 py-3 space-y-2">
+          {post.commentCount > 1 && (
+            <button
+              onClick={() => setShowComments(true)}
+              className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 font-medium"
+            >
+              Alle {post.commentCount} Kommentare anzeigen
+            </button>
+          )}
+          <div className="flex gap-2.5">
+            <Avatar url={post.latestComment.authorAvatarUrl} firstName={post.latestComment.authorFirstName} lastName={post.latestComment.authorLastName} size="sm" />
+            <div className="flex-1 bg-white dark:bg-neutral-800 rounded-lg p-2.5 border border-neutral-100 dark:border-neutral-700">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                  {post.latestComment.authorFirstName} {post.latestComment.authorLastName}
+                </span>
+                <span className="text-[11px] text-neutral-400">{getTimeAgo(post.latestComment.createdAt)}</span>
+              </div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-0.5 whitespace-pre-wrap">{post.latestComment.content}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comments */}
       {showComments && (

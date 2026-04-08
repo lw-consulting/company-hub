@@ -34,6 +34,7 @@ export async function communityRoutes(fastify: FastifyInstance) {
     const { page, pageSize, forumId, userId } = req.query as any;
     const feed = await communityService.getFeed(req.user.orgId, {
       page: Number(page) || 1, pageSize: Number(pageSize) || 20, forumId, userId,
+      currentUserId: req.user.sub,
     });
     return reply.send({ data: feed, statusCode: 200 });
   });
