@@ -87,7 +87,12 @@ export const communityReactions = pgTable(
     reactionType: varchar('reaction_type', { length: 20 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_reactions_post').on(table.postId), index('idx_reactions_user').on(table.userId)]
+  (table) => [
+    index('idx_reactions_post').on(table.postId),
+    index('idx_reactions_user').on(table.userId),
+    // Lookup "did user X react to post Y" + toggle
+    index('idx_reactions_post_user').on(table.postId, table.userId),
+  ]
 );
 
 /** Polls */
@@ -123,7 +128,12 @@ export const communityPollVotes = pgTable(
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_poll_votes_option').on(table.optionId), index('idx_poll_votes_user').on(table.userId)]
+  (table) => [
+    index('idx_poll_votes_option').on(table.optionId),
+    index('idx_poll_votes_user').on(table.userId),
+    // Lookup "did user X vote for option Y" + toggle
+    index('idx_poll_votes_option_user').on(table.optionId, table.userId),
+  ]
 );
 
 /** Bookmarks */
@@ -135,7 +145,11 @@ export const communityBookmarks = pgTable(
     postId: uuid('post_id').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_bookmarks_user').on(table.userId)]
+  (table) => [
+    index('idx_bookmarks_user').on(table.userId),
+    // Lookup "did user X bookmark post Y"
+    index('idx_bookmarks_user_post').on(table.userId, table.postId),
+  ]
 );
 
 /** Follows */

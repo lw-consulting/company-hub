@@ -1,6 +1,7 @@
-import { MODULES, ROLE_HIERARCHY, type ModuleId, type ModuleDefinition, type Role } from '@company-hub/shared';
+import { MODULES, ROLE_HIERARCHY, type ModuleId, type Role } from '@company-hub/shared';
 import {
   LayoutDashboard,
+  MessageSquare,
   Users,
   CheckSquare,
   Calendar,
@@ -9,7 +10,6 @@ import {
   Bot,
   GraduationCap,
   Settings,
-  Bell,
   UserCog,
   Building2,
   Briefcase,
@@ -30,6 +30,7 @@ export interface NavItem {
 
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
+  MessageSquare,
   Users,
   CheckSquare,
   Calendar,
@@ -41,6 +42,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 const PATH_MAP: Record<ModuleId, string> = {
   dashboard: '/',
+  chat: '/chat',
   community: '/community',
   tasks: '/tasks',
   calendar: '/calendar',
@@ -75,6 +77,15 @@ export function getNavigationItems(
     });
   }
 
+  items.push({
+    id: 'profile',
+    name: 'Profil',
+    icon: User,
+    path: '/profile',
+    group: 'main',
+    order: 99,
+  });
+
   // Admin section (only for admins+)
   if (ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY.admin) {
     items.push(
@@ -100,7 +111,7 @@ export function getNavigationItems(
         icon: Settings,
         path: '/admin/integrations',
         group: 'admin',
-        order: 2,
+        order: 3,
       },
       {
         id: 'crm',
@@ -108,15 +119,7 @@ export function getNavigationItems(
         icon: Briefcase,
         path: '/crm',
         group: 'admin',
-        order: 3,
-      },
-      {
-        id: 'profile',
-        name: 'Profil',
-        icon: User,
-        path: '/profile',
-        group: 'admin',
-        order: 10,
+        order: 2,
       },
       {
         id: 'admin-settings',
@@ -124,7 +127,7 @@ export function getNavigationItems(
         icon: Settings,
         path: '/admin/settings',
         group: 'admin',
-        order: 3,
+        order: 4,
       }
     );
   }

@@ -8,11 +8,13 @@ ENV VITE_API_URL=$VITE_API_URL
 
 # Copy package files
 COPY package.json ./
+COPY package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY frontend/package.json ./frontend/
+COPY mobile/package.json ./mobile/
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy source
 COPY packages/shared ./packages/shared

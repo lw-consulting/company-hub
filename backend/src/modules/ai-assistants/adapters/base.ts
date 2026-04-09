@@ -13,11 +13,13 @@ export interface LLMAdapter {
     model: string;
     temperature?: number;
     maxTokens?: number;
+    topP?: number;
   }): Promise<string>;
 
   chatStream(messages: ChatMessage[], options: {
     model: string;
     temperature?: number;
     maxTokens?: number;
+    topP?: number;
   }): AsyncGenerator<StreamChunk>;
 }

@@ -16,13 +16,72 @@ interface PollData {
   options: PollOption[];
 }
 
+interface FeedPost {
+  id: string;
+  poll?: PollData | null;
+}
+
 export default function PollView({ poll, postId }: { poll: PollData; postId: string }) {
   const qc = useQueryClient();
 
   const voteMut = useMutation({
     mutationFn: (optionId: string) => apiPost(`/community/polls/${optionId}/vote`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['community-feed'] });
+    onMutate: async (optionId: string) => {
+      await qc.cancelQueries({ queryKey: ['community-feed'] });
+      const snapshots = qc.getQueriesData<{ data: FeedPost[] }>({ queryKey: ['community-feed'] });
+
+      qc.setQueriesData<{ data: FeedPost[] }>({ queryKey: ['community-feed'] }, (old) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((p) => {
+            if (p.id !== postId || !p.poll) return p;
+            const currentPoll = p.poll;
+            const clickedOpt = currentPoll.options.find(o => o.id === optionId);
+            if (!clickedOpt) return p;
+
+            let newOptions: PollOption[];
+            let newTotal = currentPoll.totalVotes;
+
+            if (clickedOpt.userVoted) {
+              // Toggle off
+              newOptions = currentPoll.options.map(o =>
+                o.id === optionId
+                  ? { ...o, userVoted: false, voteCount: Math.max(0, o.voteCount - 1) }
+                  : o
+              );
+              newTotal = Math.max(0, newTotal - 1);
+            } else if (currentPoll.multipleChoice) {
+              // Add vote
+              newOptions = currentPoll.options.map(o =>
+                o.id === optionId
+                  ? { ...o, userVoted: true, voteCount: o.voteCount + 1 }
+                  : o
+              );
+              newTotal += 1;
+            } else {
+              // Single choice: remove previous vote, add new
+              const hadPrevVote = currentPoll.options.some(o => o.userVoted);
+              newOptions = currentPoll.options.map(o => {
+                if (o.id === optionId) return { ...o, userVoted: true, voteCount: o.voteCount + 1 };
+                if (o.userVoted) return { ...o, userVoted: false, voteCount: Math.max(0, o.voteCount - 1) };
+                return o;
+              });
+              if (!hadPrevVote) newTotal += 1;
+            }
+
+            return {
+              ...p,
+              poll: { ...currentPoll, options: newOptions, totalVotes: newTotal },
+            };
+          }),
+        };
+      });
+
+      return { snapshots };
+    },
+    onError: (_err, _v, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
     },
   });
 

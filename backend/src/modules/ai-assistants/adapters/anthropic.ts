@@ -3,7 +3,7 @@ import type { LLMAdapter, ChatMessage, StreamChunk } from './base.js';
 export class AnthropicAdapter implements LLMAdapter {
   constructor(private apiKey: string) {}
 
-  async chat(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number }): Promise<string> {
+  async chat(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number; topP?: number }): Promise<string> {
     const systemMsg = messages.find(m => m.role === 'system');
     const chatMsgs = messages.filter(m => m.role !== 'system');
 
@@ -17,7 +17,7 @@ export class AnthropicAdapter implements LLMAdapter {
       body: JSON.stringify({
         model: options.model,
         max_tokens: options.maxTokens ?? 2048,
-        temperature: options.temperature ?? 0.7,
+        ...(options.temperature !== undefined ? { temperature: options.temperature } : { top_p: options.topP ?? 1 }),
         system: systemMsg?.content || undefined,
         messages: chatMsgs.map(m => ({ role: m.role, content: m.content })),
       }),
@@ -32,7 +32,7 @@ export class AnthropicAdapter implements LLMAdapter {
     return data.content?.[0]?.text || '';
   }
 
-  async *chatStream(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number }): AsyncGenerator<StreamChunk> {
+  async *chatStream(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number; topP?: number }): AsyncGenerator<StreamChunk> {
     const systemMsg = messages.find(m => m.role === 'system');
     const chatMsgs = messages.filter(m => m.role !== 'system');
 
@@ -46,7 +46,7 @@ export class AnthropicAdapter implements LLMAdapter {
       body: JSON.stringify({
         model: options.model,
         max_tokens: options.maxTokens ?? 2048,
-        temperature: options.temperature ?? 0.7,
+        ...(options.temperature !== undefined ? { temperature: options.temperature } : { top_p: options.topP ?? 1 }),
         system: systemMsg?.content || undefined,
         messages: chatMsgs.map(m => ({ role: m.role, content: m.content })),
         stream: true,

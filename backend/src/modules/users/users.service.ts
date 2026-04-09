@@ -20,8 +20,12 @@ export async function listUsers(orgId: string, opts: { page?: number; pageSize?:
       role: users.role,
       department: users.department,
       position: users.position,
+      phone: users.phone,
       avatarUrl: users.avatarUrl,
       supervisorId: users.supervisorId,
+      vacationDaysPerYear: users.vacationDaysPerYear,
+      weeklyTargetHours: users.weeklyTargetHours,
+      timeEditsRequireApproval: users.timeEditsRequireApproval,
       isActive: users.isActive,
       createdAt: users.createdAt,
     })
@@ -64,6 +68,7 @@ export async function getUserById(userId: string) {
       orgId: users.orgId,
       vacationDaysPerYear: users.vacationDaysPerYear,
       weeklyTargetHours: users.weeklyTargetHours,
+      timeEditsRequireApproval: users.timeEditsRequireApproval,
       isActive: users.isActive,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
@@ -103,6 +108,7 @@ export async function createUser(input: CreateUserInput, orgId: string) {
       orgId,
       vacationDaysPerYear: input.vacationDaysPerYear ?? 25,
       weeklyTargetHours: String(input.weeklyTargetHours ?? 40),
+      timeEditsRequireApproval: input.timeEditsRequireApproval ?? false,
     })
     .returning();
 
@@ -133,6 +139,7 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
   if (input.supervisorId !== undefined) updateData.supervisorId = input.supervisorId;
   if (input.vacationDaysPerYear !== undefined) updateData.vacationDaysPerYear = input.vacationDaysPerYear;
   if (input.weeklyTargetHours !== undefined) updateData.weeklyTargetHours = String(input.weeklyTargetHours);
+  if (input.timeEditsRequireApproval !== undefined) updateData.timeEditsRequireApproval = input.timeEditsRequireApproval;
   if (input.isActive !== undefined) updateData.isActive = input.isActive;
 
   const [updated] = await db

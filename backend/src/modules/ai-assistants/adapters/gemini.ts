@@ -3,7 +3,7 @@ import type { LLMAdapter, ChatMessage, StreamChunk } from './base.js';
 export class GeminiAdapter implements LLMAdapter {
   constructor(private apiKey: string) {}
 
-  async chat(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number }): Promise<string> {
+  async chat(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number; topP?: number }): Promise<string> {
     const systemMsg = messages.find(m => m.role === 'system');
     const chatMsgs = messages.filter(m => m.role !== 'system');
 
@@ -22,6 +22,7 @@ export class GeminiAdapter implements LLMAdapter {
         generationConfig: {
           temperature: options.temperature ?? 0.7,
           maxOutputTokens: options.maxTokens ?? 2048,
+          topP: options.topP ?? 1,
         },
       }),
     });
@@ -35,7 +36,7 @@ export class GeminiAdapter implements LLMAdapter {
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
-  async *chatStream(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number }): AsyncGenerator<StreamChunk> {
+  async *chatStream(messages: ChatMessage[], options: { model: string; temperature?: number; maxTokens?: number; topP?: number }): AsyncGenerator<StreamChunk> {
     // Gemini stream via SSE
     const result = await this.chat(messages, options);
     yield { content: result, done: true };

@@ -1,6 +1,17 @@
 import { pgTable, uuid, varchar, text, boolean, integer, numeric, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations.js';
 
+const defaultNotificationPreferences = {
+  chat: { inApp: true, email: false, push: true },
+  community: { inApp: true, email: false, push: false },
+  tasks: { inApp: true, email: true, push: true },
+  calendar: { inApp: true, email: true, push: true },
+  leave: { inApp: true, email: true, push: true },
+  time_tracking: { inApp: true, email: true, push: false },
+  ai_assistants: { inApp: true, email: false, push: false },
+  system: { inApp: true, email: true, push: true },
+} as const;
+
 export const users = pgTable(
   'users',
   {
@@ -24,6 +35,11 @@ export const users = pgTable(
     initialBalanceMinutes: integer('initial_balance_minutes').notNull().default(0),
     // Working days as array of weekday numbers (1=Mon, 2=Tue, ..., 7=Sun) — default Mon-Fri
     workingDays: jsonb('working_days').$type<number[]>().notNull().default([1, 2, 3, 4, 5]),
+    timeEditsRequireApproval: boolean('time_edits_require_approval').notNull().default(false),
+    notificationPreferences: jsonb('notification_preferences')
+      .$type<typeof defaultNotificationPreferences>()
+      .notNull()
+      .default(defaultNotificationPreferences),
     isActive: boolean('is_active').notNull().default(true),
     refreshToken: text('refresh_token'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

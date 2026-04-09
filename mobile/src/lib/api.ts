@@ -1,7 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-// Set this to your Railway backend URL
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://company-hub-backend-production.up.railway.app/api';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL?.trim() || 'http://localhost:3000/api';
 
 async function getTokens() {
   const accessToken = await SecureStore.getItemAsync('accessToken');

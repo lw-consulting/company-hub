@@ -65,6 +65,15 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+export async function ensureAccessToken(): Promise<string | null> {
+  const { accessToken } = getTokens();
+  if (accessToken) {
+    return accessToken;
+  }
+
+  return refreshAccessToken();
+}
+
 export async function api<T = any>(
   path: string,
   options: FetchOptions = {}

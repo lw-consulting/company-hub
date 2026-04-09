@@ -1,11 +1,10 @@
 import { useState, lazy, Suspense } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { useAuthStore } from '../../stores/auth.store';
-import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
 
 // Lazy-loaded page components
 const DashboardPage = lazy(() => import('../../modules/dashboard/DashboardPage'));
+const ChatPage = lazy(() => import('../../modules/chat/ChatPage'));
 const AdminUsersPage = lazy(() => import('../../modules/admin/UsersPage'));
 const AdminOrgPage = lazy(() => import('../../modules/admin/OrganizationPage'));
 const TimeTrackingPage = lazy(() => import('../../modules/time-tracking/TimeTrackingPage'));
@@ -24,6 +23,7 @@ const PlaceholderPage = lazy(() => import('../../modules/PlaceholderPage'));
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/community': 'Community',
+  '/chat': 'Chats',
   '/tasks': 'Aufgaben',
   '/calendar': 'Kalender',
   '/time-tracking': 'Zeiterfassung',
@@ -48,7 +48,6 @@ export default function AppShell() {
   const [currentPath, setCurrentPath] = useState('/');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user } = useAuthStore();
 
   const handleNavigate = (path: string) => {
     setCurrentPath(path);
@@ -65,6 +64,8 @@ export default function AppShell() {
         return <DashboardPage onNavigate={handleNavigate} />;
       case '/admin/users':
         return <AdminUsersPage />;
+      case '/chat':
+        return <ChatPage />;
       case '/admin/organization':
         return <AdminOrgPage />;
       case '/time-tracking':
@@ -95,7 +96,7 @@ export default function AppShell() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#faf9f7' }}>
+    <div className="min-h-screen bg-[#faf9f7] dark:bg-neutral-950">
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div
@@ -125,7 +126,7 @@ export default function AppShell() {
           onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
         />
 
-        <main className="p-6">
+        <main className="min-h-[calc(100vh-4rem)] bg-transparent p-6">
           <Suspense fallback={<PageLoader />}>
             {renderPage()}
           </Suspense>

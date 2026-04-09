@@ -1,6 +1,35 @@
 import type { Role } from '../constants/roles.js';
 import type { ModuleId } from '../constants/modules.js';
 
+export type NotificationCategory =
+  | 'chat'
+  | 'community'
+  | 'tasks'
+  | 'calendar'
+  | 'leave'
+  | 'time_tracking'
+  | 'ai_assistants'
+  | 'system';
+
+export type NotificationChannel = 'inApp' | 'email' | 'push';
+
+export interface NotificationCategoryPreference {
+  inApp: boolean;
+  email: boolean;
+  push: boolean;
+}
+
+export interface NotificationPreferences {
+  chat: NotificationCategoryPreference;
+  community: NotificationCategoryPreference;
+  tasks: NotificationCategoryPreference;
+  calendar: NotificationCategoryPreference;
+  leave: NotificationCategoryPreference;
+  time_tracking: NotificationCategoryPreference;
+  ai_assistants: NotificationCategoryPreference;
+  system: NotificationCategoryPreference;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -15,7 +44,18 @@ export interface User {
   orgId: string;
   vacationDaysPerYear: number;
   weeklyTargetHours: number;
+  timeEditsRequireApproval: boolean;
+  notificationPreferences: NotificationPreferences;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PushDevice {
+  id: string;
+  platform: 'web' | 'expo';
+  endpoint: string;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
