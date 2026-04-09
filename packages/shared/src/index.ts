@@ -38,5 +38,9 @@ export type {
   ApiResponse,
   ApiError,
   Notification,
+  NotificationCategory,
+  NotificationCategoryPreference,
+  NotificationPreferences,
   PaginatedResponse,
+  PushDevice,
 } from './types/index.js';

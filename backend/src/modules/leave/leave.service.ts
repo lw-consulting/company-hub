@@ -3,9 +3,8 @@ import { db } from '../../config/database.js';
 import { leaveTypes, leaveRequests, publicHolidays } from '../../db/schema/leave.js';
 import { users } from '../../db/schema/users.js';
 import { calendarEvents } from '../../db/schema/calendar.js';
-import { notifications } from '../../db/schema/notifications.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../lib/errors.js';
-import { sendEmail } from '../../lib/email.js';
+import { createNotification } from '../../lib/notification.service.js';
 
 // --- Leave Types ---
 
@@ -156,7 +155,7 @@ export async function createLeaveRequest(
       .limit(1);
 
     if (user?.supervisorId) {
-      await db.insert(notifications).values({
+      await createNotification({
         userId: user.supervisorId,
         type: 'leave_request',
         title: 'Neuer Urlaubsantrag',
@@ -164,27 +163,6 @@ export async function createLeaveRequest(
         link: '/leave',
         moduleId: 'leave',
       });
-
-      // Send email to supervisor
-      const [supervisor] = await db
-        .select({ email: users.email, firstName: users.firstName })
-        .from(users)
-        .where(eq(users.id, user.supervisorId))
-        .limit(1);
-
-      if (supervisor) {
-        await sendEmail({
-          to: supervisor.email,
-          subject: `Urlaubsantrag von ${user.firstName} ${user.lastName}`,
-          html: `
-            <h2>Neuer Urlaubsantrag</h2>
-            <p><strong>${user.firstName} ${user.lastName}</strong> hat einen ${type.name}-Antrag gestellt.</p>
-            <p>Zeitraum: ${data.startDate} bis ${data.endDate} (${businessDays} Arbeitstage)</p>
-            ${data.reason ? `<p>Grund: ${data.reason}</p>` : ''}
-            <p>Bitte loggen Sie sich in Company Hub ein, um den Antrag zu genehmigen oder abzulehnen.</p>
-          `,
-        });
-      }
     }
   }
 
@@ -410,7 +388,7 @@ export async function decideLeaveRequest(
 
   // Notify the employee
   const statusText = decision === 'approved' ? 'genehmigt' : 'abgelehnt';
-  await db.insert(notifications).values({
+  await createNotification({
     userId: request.userId,
     type: `leave_${decision}`,
     title: `Urlaubsantrag ${statusText}`,
@@ -418,25 +396,6 @@ export async function decideLeaveRequest(
     link: '/leave',
     moduleId: 'leave',
   });
-
-  // Send email to employee
-  const [emp] = await db
-    .select({ email: users.email, firstName: users.firstName })
-    .from(users)
-    .where(eq(users.id, request.userId))
-    .limit(1);
-
-  if (emp) {
-    await sendEmail({
-      to: emp.email,
-      subject: `Urlaubsantrag ${statusText}`,
-      html: `
-        <h2>Ihr Urlaubsantrag wurde ${statusText}</h2>
-        <p>Zeitraum: ${request.startDate} bis ${request.endDate} (${request.businessDays} Arbeitstage)</p>
-        ${note ? `<p>Anmerkung: ${note}</p>` : ''}
-      `,
-    });
-  }
 
   // If approved, create calendar event
   if (decision === 'approved') {

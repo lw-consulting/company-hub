@@ -19,6 +19,11 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('noreply@company-hub.com'),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default('mailto:noreply@company-hub.com'),
+  EXPO_ACCESS_TOKEN: z.string().optional(),
+  EXPO_PROJECT_ID: z.string().optional(),
 
   // Server
   PORT: z.coerce.number().default(3000),

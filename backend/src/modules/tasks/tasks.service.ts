@@ -2,9 +2,8 @@ import { eq, and, desc, asc, sql, isNull, or } from 'drizzle-orm';
 import { db } from '../../config/database.js';
 import { tasks, taskComments } from '../../db/schema/tasks.js';
 import { users } from '../../db/schema/users.js';
-import { notifications } from '../../db/schema/notifications.js';
 import { NotFoundError } from '../../lib/errors.js';
-import { sendEmail } from '../../lib/email.js';
+import { createNotification } from '../../lib/notification.service.js';
 
 interface CreateTaskInput {
   title: string;
@@ -113,7 +112,7 @@ export async function createTask(userId: string, orgId: string, data: CreateTask
       .where(eq(users.id, userId))
       .limit(1);
 
-    await db.insert(notifications).values({
+    await createNotification({
       userId: data.assignedTo,
       type: 'task_assigned',
       title: 'Neue Aufgabe zugewiesen',
@@ -121,27 +120,6 @@ export async function createTask(userId: string, orgId: string, data: CreateTask
       link: '/tasks',
       moduleId: 'tasks',
     });
-
-    // Email notification
-    const [assignee] = await db
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, data.assignedTo))
-      .limit(1);
-
-    if (assignee) {
-      await sendEmail({
-        to: assignee.email,
-        subject: `Neue Aufgabe: ${data.title}`,
-        html: `
-          <h2>Neue Aufgabe zugewiesen</h2>
-          <p><strong>${data.title}</strong></p>
-          ${data.description ? `<p>${data.description}</p>` : ''}
-          ${data.dueDate ? `<p>Fällig: ${data.dueDate}</p>` : ''}
-          <p>Zugewiesen von ${creator?.firstName} ${creator?.lastName}</p>
-        `,
-      });
-    }
   }
 
   return task;

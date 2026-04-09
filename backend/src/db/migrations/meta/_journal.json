@@ -43,6 +43,13 @@
       "when": 1775712460230,
       "tag": "0005_numerous_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775766096721,
+      "tag": "0006_condemned_microchip",
+      "breakpoints": true
     }
   ]
 }

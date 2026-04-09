@@ -6,7 +6,14 @@ import { userModulePermissions } from '../../db/schema/user-module-permissions.j
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt.js';
 import { UnauthorizedError } from '../../lib/errors.js';
-import type { JwtPayload, AuthTokens, Role, ModuleId } from '@company-hub/shared';
+import type {
+  JwtPayload,
+  AuthTokens,
+  Role,
+  ModuleId,
+  NotificationPreferences,
+} from '@company-hub/shared';
+import { mergeUserNotificationPreferences } from '../../lib/notification.service.js';
 
 function hashRefreshToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -118,6 +125,7 @@ export async function getMe(userId: string) {
       timeEditsRequireApproval: users.timeEditsRequireApproval,
       initialBalanceMinutes: users.initialBalanceMinutes,
       workingDays: users.workingDays,
+      notificationPreferences: users.notificationPreferences,
       isActive: users.isActive,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
@@ -138,8 +146,15 @@ export async function updateMe(
     weeklyTargetHours?: number | string;
     initialBalanceMinutes?: number;
     workingDays?: number[];
+    notificationPreferences?: Partial<NotificationPreferences>;
   }
 ) {
+  const [existing] = await db
+    .select({ notificationPreferences: users.notificationPreferences })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   const updateFields: Record<string, any> = { updatedAt: new Date() };
   if (data.firstName !== undefined) updateFields.firstName = data.firstName;
   if (data.lastName !== undefined) updateFields.lastName = data.lastName;
@@ -148,6 +163,12 @@ export async function updateMe(
   if (data.initialBalanceMinutes !== undefined) updateFields.initialBalanceMinutes = data.initialBalanceMinutes;
   if (data.workingDays !== undefined && Array.isArray(data.workingDays)) {
     updateFields.workingDays = data.workingDays.filter(d => Number.isInteger(d) && d >= 1 && d <= 7);
+  }
+  if (data.notificationPreferences !== undefined) {
+    updateFields.notificationPreferences = mergeUserNotificationPreferences(
+      existing?.notificationPreferences,
+      data.notificationPreferences,
+    );
   }
 
   await db.update(users).set(updateFields).where(eq(users.id, userId));

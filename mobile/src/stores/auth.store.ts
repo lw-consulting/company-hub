@@ -1,14 +1,7 @@
 import { create } from 'zustand';
 import { api, clearTokens } from '../lib/api';
 import * as SecureStore from 'expo-secure-store';
-
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-}
+import type { User } from '@company-hub/shared';
 
 interface AuthState {
   user: User | null;

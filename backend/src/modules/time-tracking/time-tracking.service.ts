@@ -3,8 +3,8 @@ import { db } from '../../config/database.js';
 import { timeEntries, timeEntryBreaks, timeEntryChangeRequests } from '../../db/schema/time-tracking.js';
 import { organizations } from '../../db/schema/organizations.js';
 import { users } from '../../db/schema/users.js';
-import { notifications } from '../../db/schema/notifications.js';
 import { AppError, ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { createNotification } from '../../lib/notification.service.js';
 import { calculateActualBreakMinutes, calculateBookedBreakMinutes } from './time-tracking.logic.js';
 
 interface BreakInput {
@@ -479,7 +479,7 @@ export async function updateOwnEntry(
       })
       .returning();
 
-    await db.insert(notifications).values({
+    await createNotification({
       userId: user.supervisorId,
       type: 'time_entry_change_request',
       title: 'Zeiteintrag zur Freigabe',
@@ -573,7 +573,7 @@ export async function decideChangeRequest(
     })
     .where(eq(timeEntryChangeRequests.id, requestId));
 
-  await db.insert(notifications).values({
+  await createNotification({
     userId: request.userId,
     type: 'time_entry_change_request_decision',
     title: decision === 'approved' ? 'Zeitänderung genehmigt' : 'Zeitänderung abgelehnt',

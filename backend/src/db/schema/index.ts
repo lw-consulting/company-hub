@@ -2,6 +2,7 @@ export { organizations } from './organizations.js';
 export { users } from './users.js';
 export { userModulePermissions } from './user-module-permissions.js';
 export { notifications } from './notifications.js';
+export { notificationDevices } from './notification-devices.js';
 export {
   chatConversations,
   chatParticipants,
