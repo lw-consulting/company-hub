@@ -24,6 +24,7 @@ export const users = pgTable(
     initialBalanceMinutes: integer('initial_balance_minutes').notNull().default(0),
     // Working days as array of weekday numbers (1=Mon, 2=Tue, ..., 7=Sun) — default Mon-Fri
     workingDays: jsonb('working_days').$type<number[]>().notNull().default([1, 2, 3, 4, 5]),
+    timeEditsRequireApproval: boolean('time_edits_require_approval').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),
     refreshToken: text('refresh_token'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

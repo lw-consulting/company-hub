@@ -1,10 +1,24 @@
-import { eq, and, gte, lte, isNull, desc, inArray, asc } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull, desc, inArray, asc, ne } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { timeEntries, timeEntryBreaks } from '../../db/schema/time-tracking.js';
+import { timeEntries, timeEntryBreaks, timeEntryChangeRequests } from '../../db/schema/time-tracking.js';
 import { organizations } from '../../db/schema/organizations.js';
 import { users } from '../../db/schema/users.js';
-import { AppError, ConflictError, NotFoundError } from '../../lib/errors.js';
+import { notifications } from '../../db/schema/notifications.js';
+import { AppError, ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { calculateActualBreakMinutes, calculateBookedBreakMinutes } from './time-tracking.logic.js';
+
+interface BreakInput {
+  startedAt: string;
+  endedAt: string;
+}
+
+interface TimeEntryUpdateInput {
+  clockIn?: string;
+  clockOut?: string;
+  breakMinutes?: number;
+  notes?: string | null;
+  breaks?: BreakInput[];
+}
 
 async function getBreakPolicy(orgId: string) {
   const [org] = await db
@@ -41,6 +55,115 @@ async function getBreaksByEntryIds(entryIds: string[]) {
   }
 
   return map;
+}
+
+async function replaceEntryBreaks(
+  entry: typeof timeEntries.$inferSelect,
+  breaks: BreakInput[],
+) {
+  await db.delete(timeEntryBreaks).where(eq(timeEntryBreaks.timeEntryId, entry.id));
+
+  if (breaks.length === 0) {
+    return;
+  }
+
+  await db.insert(timeEntryBreaks).values(
+    breaks.map((entryBreak) => ({
+      timeEntryId: entry.id,
+      userId: entry.userId,
+      orgId: entry.orgId,
+      startedAt: new Date(entryBreak.startedAt),
+      endedAt: new Date(entryBreak.endedAt),
+    })),
+  );
+}
+
+async function applyEntryUpdate(
+  entry: typeof timeEntries.$inferSelect,
+  data: TimeEntryUpdateInput,
+  options: {
+    correctedBy?: string;
+    userEdited?: boolean;
+  } = {},
+) {
+  const now = new Date();
+  const nextClockIn = data.clockIn ? new Date(data.clockIn) : entry.clockIn;
+  const nextClockOut = data.clockOut ? new Date(data.clockOut) : entry.clockOut;
+
+  const updateData: Record<string, any> = {
+    updatedAt: now,
+  };
+
+  if (options.correctedBy) {
+    updateData.correctedBy = options.correctedBy;
+    updateData.correctionNote = 'Korrektur durch Vorgesetzten';
+  }
+
+  if (options.userEdited) {
+    updateData.userEdited = true;
+    updateData.userEditedAt = now;
+  }
+
+  if (data.clockIn) updateData.clockIn = nextClockIn;
+  if (data.clockOut) updateData.clockOut = nextClockOut;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+
+  let actualBreakMinutes = entry.breakMinutes;
+  let bookedBreakMinutes = data.breakMinutes ?? entry.breakMinutes;
+  let autoBreakApplied = entry.autoBreakApplied;
+
+  if (data.breaks) {
+    const sorted = [...data.breaks].sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+    for (const entryBreak of sorted) {
+      const startedAt = new Date(entryBreak.startedAt);
+      const endedAt = new Date(entryBreak.endedAt);
+      if (!(startedAt < endedAt)) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Pausenende muss nach dem Pausenstart liegen.');
+      }
+      if (startedAt < nextClockIn || (nextClockOut && endedAt > nextClockOut)) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Pausen müssen innerhalb der Arbeitszeit liegen.');
+      }
+    }
+
+    for (let i = 1; i < sorted.length; i += 1) {
+      if (new Date(sorted[i - 1].endedAt).getTime() > new Date(sorted[i].startedAt).getTime()) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Pausen dürfen sich nicht überschneiden.');
+      }
+    }
+
+    await replaceEntryBreaks(entry, sorted);
+    actualBreakMinutes = calculateActualBreakMinutes(
+      sorted.map((item) => ({ startedAt: new Date(item.startedAt), endedAt: new Date(item.endedAt) })),
+      nextClockOut ?? now,
+    );
+
+    if (nextClockOut) {
+      const durationMinutes = Math.round((nextClockOut.getTime() - nextClockIn.getTime()) / 60000);
+      bookedBreakMinutes = calculateBookedBreakMinutes(durationMinutes, actualBreakMinutes, await getBreakPolicy(entry.orgId));
+      autoBreakApplied = bookedBreakMinutes > actualBreakMinutes;
+    } else {
+      bookedBreakMinutes = actualBreakMinutes;
+      autoBreakApplied = false;
+    }
+  } else if (data.breakMinutes !== undefined) {
+    bookedBreakMinutes = data.breakMinutes;
+    autoBreakApplied = false;
+  }
+
+  updateData.breakMinutes = bookedBreakMinutes;
+  updateData.autoBreakApplied = autoBreakApplied;
+
+  const [updated] = await db
+    .update(timeEntries)
+    .set(updateData)
+    .where(eq(timeEntries.id, entry.id))
+    .returning();
+
+  if (!updated) {
+    throw new NotFoundError('Zeiteintrag nicht gefunden');
+  }
+
+  return decorateEntry(updated, nextClockOut ?? now);
 }
 
 function serializeBreaks(
@@ -285,48 +408,19 @@ export async function getSummary(
 /** Update a time entry (for corrections by supervisor) */
 export async function updateEntry(
   entryId: string,
-  data: {
-    clockIn?: string;
-    clockOut?: string;
-    breakMinutes?: number;
-    notes?: string;
-  },
+  data: TimeEntryUpdateInput,
   correctedBy: string
 ) {
-  const updateData: Record<string, any> = {
-    correctedBy,
-    correctionNote: `Korrektur durch Vorgesetzten`,
-    updatedAt: new Date(),
-  };
-
-  if (data.clockIn) updateData.clockIn = new Date(data.clockIn);
-  if (data.clockOut) updateData.clockOut = new Date(data.clockOut);
-  if (data.breakMinutes !== undefined) {
-    updateData.breakMinutes = data.breakMinutes;
-    updateData.autoBreakApplied = false;
-  }
-  if (data.notes) updateData.notes = data.notes;
-
-  const [entry] = await db
-    .update(timeEntries)
-    .set(updateData)
-    .where(eq(timeEntries.id, entryId))
-    .returning();
-
+  const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, entryId)).limit(1);
   if (!entry) throw new NotFoundError('Zeiteintrag nicht gefunden');
-  return entry;
+  return applyEntryUpdate(entry, data, { correctedBy });
 }
 
 /** User edits their own time entry (marked as userEdited) */
 export async function updateOwnEntry(
   entryId: string,
   userId: string,
-  data: {
-    clockIn?: string;
-    clockOut?: string;
-    breakMinutes?: number;
-    notes?: string;
-  }
+  data: TimeEntryUpdateInput
 ) {
   const [existing] = await db
     .select()
@@ -336,28 +430,164 @@ export async function updateOwnEntry(
 
   if (!existing) throw new NotFoundError('Zeiteintrag nicht gefunden');
 
-  const now = new Date();
-  const updateData: Record<string, any> = {
-    userEdited: true,
-    userEditedAt: now,
-    updatedAt: now,
-  };
+  const [user] = await db
+    .select({
+      supervisorId: users.supervisorId,
+      timeEditsRequireApproval: users.timeEditsRequireApproval,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
 
-  if (data.clockIn) updateData.clockIn = new Date(data.clockIn);
-  if (data.clockOut) updateData.clockOut = new Date(data.clockOut);
-  if (data.breakMinutes !== undefined) {
-    updateData.breakMinutes = data.breakMinutes;
-    updateData.autoBreakApplied = false;
+  if (!user) {
+    throw new NotFoundError('Benutzer nicht gefunden');
   }
-  if (data.notes !== undefined) updateData.notes = data.notes;
 
-  const [entry] = await db
-    .update(timeEntries)
-    .set(updateData)
-    .where(and(eq(timeEntries.id, entryId), eq(timeEntries.userId, userId)))
-    .returning();
+  if (user.timeEditsRequireApproval && user.supervisorId) {
+    const [existingRequest] = await db
+      .select({ id: timeEntryChangeRequests.id })
+      .from(timeEntryChangeRequests)
+      .where(and(
+        eq(timeEntryChangeRequests.timeEntryId, entryId),
+        eq(timeEntryChangeRequests.userId, userId),
+        eq(timeEntryChangeRequests.status, 'pending'),
+      ))
+      .limit(1);
 
-  return entry;
+    if (existingRequest) {
+      throw new ConflictError('Für diesen Zeiteintrag gibt es bereits einen offenen Änderungsantrag.');
+    }
+
+    const requestedChange = {
+      clockIn: data.clockIn,
+      clockOut: data.clockOut,
+      breakMinutes: data.breakMinutes,
+      notes: data.notes,
+      breaks: data.breaks,
+    };
+
+    const [request] = await db
+      .insert(timeEntryChangeRequests)
+      .values({
+        timeEntryId: entryId,
+        userId,
+        orgId: existing.orgId,
+        supervisorId: user.supervisorId,
+        requestedChange,
+      })
+      .returning();
+
+    await db.insert(notifications).values({
+      userId: user.supervisorId,
+      type: 'time_entry_change_request',
+      title: 'Zeiteintrag zur Freigabe',
+      body: `${user.firstName} ${user.lastName} hat eine Änderung an einem Zeiteintrag zur Freigabe eingereicht.`,
+      link: '/time-tracking',
+      moduleId: 'time-tracking',
+    });
+
+    return {
+      approvalRequired: true,
+      requestId: request.id,
+    };
+  }
+
+  const entry = await applyEntryUpdate(existing, data, { userEdited: true });
+  return {
+    approvalRequired: false,
+    entry,
+  };
+}
+
+export async function getPendingChangeRequests(supervisorId: string, orgId: string) {
+  const requests = await db
+    .select({
+      id: timeEntryChangeRequests.id,
+      status: timeEntryChangeRequests.status,
+      requestedChange: timeEntryChangeRequests.requestedChange,
+      decisionNote: timeEntryChangeRequests.decisionNote,
+      createdAt: timeEntryChangeRequests.createdAt,
+      entryId: timeEntries.id,
+      clockIn: timeEntries.clockIn,
+      clockOut: timeEntries.clockOut,
+      breakMinutes: timeEntries.breakMinutes,
+      notes: timeEntries.notes,
+      userId: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(timeEntryChangeRequests)
+    .innerJoin(timeEntries, eq(timeEntryChangeRequests.timeEntryId, timeEntries.id))
+    .innerJoin(users, eq(timeEntryChangeRequests.userId, users.id))
+    .where(and(
+      eq(timeEntryChangeRequests.orgId, orgId),
+      eq(timeEntryChangeRequests.supervisorId, supervisorId),
+      eq(timeEntryChangeRequests.status, 'pending'),
+    ))
+    .orderBy(desc(timeEntryChangeRequests.createdAt));
+
+  return requests;
+}
+
+export async function decideChangeRequest(
+  requestId: string,
+  supervisorId: string,
+  decision: 'approved' | 'rejected',
+  note?: string,
+) {
+  const [request] = await db
+    .select()
+    .from(timeEntryChangeRequests)
+    .where(eq(timeEntryChangeRequests.id, requestId))
+    .limit(1);
+
+  if (!request) {
+    throw new NotFoundError('Änderungsantrag nicht gefunden');
+  }
+  if (request.supervisorId !== supervisorId) {
+    throw new ForbiddenError('Nicht berechtigt');
+  }
+  if (request.status !== 'pending') {
+    throw new ConflictError('Dieser Änderungsantrag wurde bereits bearbeitet.');
+  }
+
+  let updatedEntry: Awaited<ReturnType<typeof decorateEntry>> | null = null;
+  if (decision === 'approved') {
+    const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, request.timeEntryId)).limit(1);
+    if (!entry) {
+      throw new NotFoundError('Zeiteintrag nicht gefunden');
+    }
+    updatedEntry = await applyEntryUpdate(entry, request.requestedChange, { correctedBy: supervisorId });
+  }
+
+  await db
+    .update(timeEntryChangeRequests)
+    .set({
+      status: decision,
+      decisionNote: note,
+      decidedAt: new Date(),
+      decidedBy: supervisorId,
+      updatedAt: new Date(),
+    })
+    .where(eq(timeEntryChangeRequests.id, requestId));
+
+  await db.insert(notifications).values({
+    userId: request.userId,
+    type: 'time_entry_change_request_decision',
+    title: decision === 'approved' ? 'Zeitänderung genehmigt' : 'Zeitänderung abgelehnt',
+    body: decision === 'approved'
+      ? `Deine Änderung eines Zeiteintrags wurde genehmigt.${note ? ` Hinweis: ${note}` : ''}`
+      : `Deine Änderung eines Zeiteintrags wurde abgelehnt.${note ? ` Hinweis: ${note}` : ''}`,
+    link: '/time-tracking',
+    moduleId: 'time-tracking',
+  });
+
+  return {
+    status: decision,
+    updatedEntry,
+  };
 }
 
 /** Add break minutes to the currently active entry */

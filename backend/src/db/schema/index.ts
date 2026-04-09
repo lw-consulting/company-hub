@@ -9,7 +9,7 @@ export {
   chatAttachments,
   chatMessageReceipts,
 } from './chat.js';
-export { timeEntries, timeEntryBreaks } from './time-tracking.js';
+export { timeEntries, timeEntryBreaks, timeEntryChangeRequests } from './time-tracking.js';
 export { leaveTypes, leaveRequests, publicHolidays } from './leave.js';
 export { calendarEvents, calendarEventAttendees } from './calendar.js';
 export { communityForumGroups, communityForums, communityPosts, communityComments, communityReactions, communityLikes, communityPolls, communityPollOptions, communityPollVotes, communityBookmarks, communityFollows, communityProfiles } from './community.js';

@@ -115,6 +115,7 @@ export async function getMe(userId: string) {
       orgId: users.orgId,
       vacationDaysPerYear: users.vacationDaysPerYear,
       weeklyTargetHours: users.weeklyTargetHours,
+      timeEditsRequireApproval: users.timeEditsRequireApproval,
       initialBalanceMinutes: users.initialBalanceMinutes,
       workingDays: users.workingDays,
       isActive: users.isActive,

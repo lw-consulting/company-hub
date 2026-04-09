@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPatch } from '../../lib/api';
+import { useAuthStore } from '../../stores/auth.store';
+import { ROLE_HIERARCHY, type Role } from '@company-hub/shared';
 import { Clock, Play, Square, Coffee, ChevronLeft, ChevronRight, Edit, X, Check, AlertCircle } from 'lucide-react';
 
 interface TimeEntry {
@@ -44,6 +46,26 @@ interface Summary {
   entries: TimeEntry[];
 }
 
+interface PendingTimeEditRequest {
+  id: string;
+  createdAt: string;
+  requestedChange: {
+    clockIn?: string;
+    clockOut?: string;
+    notes?: string | null;
+    breakMinutes?: number;
+    breaks?: Array<{ startedAt: string; endedAt: string }>;
+  };
+  entryId: string;
+  clockIn: string;
+  clockOut: string | null;
+  breakMinutes: number;
+  notes: string | null;
+  userId: string;
+  firstName: string;
+  lastName: string;
+}
+
 function formatTime(isoStr: string) {
   return new Date(isoStr).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
 }
@@ -73,9 +95,11 @@ function getWeekRange(offset: number) {
 
 export default function TimeTrackingPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
   const [weekOffset, setWeekOffset] = useState(0);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const week = getWeekRange(weekOffset);
+  const canApproveTimeEdits = ROLE_HIERARCHY[(user?.role as Role) || 'user'] >= ROLE_HIERARCHY.manager;
 
   // Active entry (am I clocked in?)
   const { data: activeEntry } = useQuery({
@@ -88,6 +112,12 @@ export default function TimeTrackingPage() {
   const { data: summary, isLoading } = useQuery({
     queryKey: ['time-summary', week.start, week.end],
     queryFn: () => apiGet<Summary>(`/time-tracking/summary?start=${week.start}&end=${week.end}`),
+  });
+
+  const { data: pendingEdits } = useQuery({
+    queryKey: ['time-pending-edits'],
+    queryFn: () => apiGet<PendingTimeEditRequest[]>('/time-tracking/pending-edits'),
+    enabled: canApproveTimeEdits,
   });
 
   const clockInMutation = useMutation({
@@ -209,6 +239,24 @@ export default function TimeTrackingPage() {
           </div>
         </div>
       </div>
+
+      {canApproveTimeEdits && (
+        <div className="card p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">Zeitänderungen zur Freigabe</h3>
+            <p className="text-sm text-neutral-500">Anträge von Mitarbeitern, deren Zeitänderungen freigegeben werden müssen.</p>
+          </div>
+          {!pendingEdits?.length ? (
+            <div className="text-sm text-neutral-400">Aktuell keine offenen Änderungsanträge.</div>
+          ) : (
+            <div className="space-y-3">
+              {pendingEdits.map((request) => (
+                <PendingEditCard key={request.id} request={request} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -378,6 +426,69 @@ function formatBreakInterval(entryBreak: TimeBreak) {
   return `${start} - ${end}`;
 }
 
+function PendingEditCard({ request }: { request: PendingTimeEditRequest }) {
+  const queryClient = useQueryClient();
+  const decideMutation = useMutation({
+    mutationFn: ({ status }: { status: 'approved' | 'rejected' }) =>
+      apiPatch(`/time-tracking/pending-edits/${request.id}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time-pending-edits'] });
+      queryClient.invalidateQueries({ queryKey: ['time-summary'] });
+    },
+  });
+
+  const requestedBreaks = request.requestedChange.breaks || [];
+
+  return (
+    <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="font-medium text-neutral-800 dark:text-neutral-100">
+            {request.firstName} {request.lastName}
+          </div>
+          <div className="text-sm text-neutral-500">
+            Eingereicht am {new Date(request.createdAt).toLocaleString('de-AT')}
+          </div>
+          <div className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+            Alt: {formatTime(request.clockIn)} - {request.clockOut ? formatTime(request.clockOut) : '--'} · {request.breakMinutes} min Pause
+          </div>
+          <div className="text-sm text-neutral-600 dark:text-neutral-300">
+            Neu: {request.requestedChange.clockIn ? formatTime(request.requestedChange.clockIn) : formatTime(request.clockIn)}
+            {' - '}
+            {request.requestedChange.clockOut ? formatTime(request.requestedChange.clockOut) : (request.clockOut ? formatTime(request.clockOut) : '--')}
+          </div>
+          {requestedBreaks.length > 0 && (
+            <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              Pausen: {requestedBreaks.map((entryBreak) => `${formatTime(entryBreak.startedAt)} - ${formatTime(entryBreak.endedAt)}`).join(', ')}
+            </div>
+          )}
+          {request.requestedChange.notes && (
+            <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              Notiz: {request.requestedChange.notes}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => decideMutation.mutate({ status: 'rejected' })}
+            className="btn-secondary text-red-600"
+            disabled={decideMutation.isPending}
+          >
+            Ablehnen
+          </button>
+          <button
+            onClick={() => decideMutation.mutate({ status: 'approved' })}
+            className="btn-primary"
+            disabled={decideMutation.isPending}
+          >
+            Genehmigen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Modal to edit an existing time entry */
 function EditEntryModal({ entry, onClose }: { entry: TimeEntry; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -392,14 +503,24 @@ function EditEntryModal({ entry, onClose }: { entry: TimeEntry; onClose: () => v
   const [clockInTime, setClockInTime] = useState(toTimeInput(entry.clockIn));
   const [clockOutTime, setClockOutTime] = useState(entry.clockOut ? toTimeInput(entry.clockOut) : '');
   const [breakMinutes, setBreakMinutes] = useState(String(entry.breakMinutes));
+  const [breaks, setBreaks] = useState<Array<{ startedAt: string; endedAt: string }>>(
+    (entry.breaks || []).map((entryBreak) => ({
+      startedAt: toTimeInput(entryBreak.startedAt),
+      endedAt: entryBreak.endedAt ? toTimeInput(entryBreak.endedAt) : toTimeInput(entryBreak.startedAt),
+    })),
+  );
   const [notes, setNotes] = useState(entry.notes || '');
   const [error, setError] = useState('');
 
   const updateMut = useMutation({
     mutationFn: (data: any) => apiPatch(`/time-tracking/entries/${entry.id}/own`, data),
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['time-summary'] });
       queryClient.invalidateQueries({ queryKey: ['time-active'] });
+      queryClient.invalidateQueries({ queryKey: ['time-pending-edits'] });
+      if (result?.approvalRequired) {
+        window.alert('Die Änderung wurde zur Freigabe an den Vorgesetzten eingereicht.');
+      }
       onClose();
     },
     onError: (e: any) => setError(e?.message || 'Fehler beim Speichern'),
@@ -422,11 +543,19 @@ function EditEntryModal({ entry, onClose }: { entry: TimeEntry; onClose: () => v
       return;
     }
 
+    const normalizedBreaks = breaks
+      .filter((entryBreak) => entryBreak.startedAt && entryBreak.endedAt)
+      .map((entryBreak) => ({
+        startedAt: new Date(`${dateStr}T${entryBreak.startedAt}:00`).toISOString(),
+        endedAt: new Date(`${dateStr}T${entryBreak.endedAt}:00`).toISOString(),
+      }));
+
     updateMut.mutate({
       clockIn: inIso,
       clockOut: outIso,
       breakMinutes: bm,
       notes: notes || undefined,
+      breaks: normalizedBreaks,
     });
   };
 
@@ -460,6 +589,49 @@ function EditEntryModal({ entry, onClose }: { entry: TimeEntry; onClose: () => v
         <div>
           <label className="label">Gebuchte Pause (Minuten)</label>
           <input type="number" min="0" className="input" value={breakMinutes} onChange={(e) => setBreakMinutes(e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="label mb-0">Dokumentierte Pausen</label>
+            <button
+              type="button"
+              onClick={() => setBreaks((current) => [...current, { startedAt: '12:00', endedAt: '12:30' }])}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Pause hinzufügen
+            </button>
+          </div>
+          {breaks.length === 0 ? (
+            <div className="text-xs text-neutral-400">Keine dokumentierten Pausen vorhanden.</div>
+          ) : (
+            <div className="space-y-2">
+              {breaks.map((entryBreak, index) => (
+                <div key={`${entryBreak.startedAt}-${entryBreak.endedAt}-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                  <input
+                    type="time"
+                    className="input"
+                    value={entryBreak.startedAt}
+                    onChange={(e) => setBreaks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, startedAt: e.target.value } : item))}
+                  />
+                  <input
+                    type="time"
+                    className="input"
+                    value={entryBreak.endedAt}
+                    onChange={(e) => setBreaks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, endedAt: e.target.value } : item))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setBreaks((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                    className="p-2 text-neutral-400 hover:text-red-500"
+                    title="Pause entfernen"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

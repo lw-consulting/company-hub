@@ -51,8 +51,14 @@ export async function timeTrackingRoutes(fastify: FastifyInstance) {
     if (!start || !end) {
       return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'start und end Parameter erforderlich' });
     }
-    // Admins/managers can view other users' summaries
     const targetUserId = userId || request.user.sub;
+    if (
+      userId &&
+      userId !== request.user.sub &&
+      !['manager', 'admin', 'super_admin'].includes(request.user.role)
+    ) {
+      return reply.status(403).send({ error: 'FORBIDDEN', message: 'Keine Berechtigung für fremde Zeiterfassungen' });
+    }
     const summary = await timeService.getSummary(targetUserId, start, end);
     return reply.send({ data: summary, statusCode: 200 });
   });
@@ -88,8 +94,8 @@ export async function timeTrackingRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as any;
-    const entry = await timeService.updateOwnEntry(id, request.user.sub, data);
-    return reply.send({ data: entry, statusCode: 200 });
+    const result = await timeService.updateOwnEntry(id, request.user.sub, data);
+    return reply.send({ data: result, statusCode: 200 });
   });
 
   // PATCH /api/time-tracking/entries/:id (supervisor correction)
@@ -110,5 +116,21 @@ export async function timeTrackingRoutes(fastify: FastifyInstance) {
     const today = date || new Date().toISOString().split('T')[0];
     const team = await timeService.getTeamEntries(request.user.sub, request.user.orgId, today);
     return reply.send({ data: team, statusCode: 200 });
+  });
+
+  fastify.get('/api/time-tracking/pending-edits', {
+    preHandler: [modGuard, fastify.requireRole('manager')],
+  }, async (request, reply) => {
+    const requests = await timeService.getPendingChangeRequests(request.user.sub, request.user.orgId);
+    return reply.send({ data: requests, statusCode: 200 });
+  });
+
+  fastify.patch('/api/time-tracking/pending-edits/:id', {
+    preHandler: [modGuard, fastify.requireRole('manager')],
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { status, note } = request.body as { status: 'approved' | 'rejected'; note?: string };
+    const result = await timeService.decideChangeRequest(id, request.user.sub, status, note);
+    return reply.send({ data: result, statusCode: 200 });
   });
 }

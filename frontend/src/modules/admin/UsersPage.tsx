@@ -11,6 +11,9 @@ import {
   Shield,
   Trash2,
   AlertCircle,
+  Clock3,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface UserRow {
@@ -26,6 +29,7 @@ interface UserRow {
   supervisorId: string | null;
   vacationDaysPerYear: number;
   weeklyTargetHours: string | number;
+  timeEditsRequireApproval: boolean;
 }
 
 interface Supervisor {
@@ -35,11 +39,27 @@ interface Supervisor {
   email: string;
 }
 
+interface TimeEntrySummary {
+  id: string;
+  clockIn: string;
+  clockOut: string | null;
+  breakMinutes: number;
+  netMinutes: number | null;
+}
+
+interface UserTimeSummary {
+  totalMinutes: number;
+  totalBreakMinutes: number;
+  balanceHours: number;
+  entries: TimeEntrySummary[];
+}
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingModules, setEditingModules] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [viewingTimeUser, setViewingTimeUser] = useState<UserRow | null>(null);
   const [search, setSearch] = useState('');
 
   const { data: usersData, isLoading } = useQuery({
@@ -150,6 +170,13 @@ export default function UsersPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => setViewingTimeUser(user)}
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                            title="Zeiten ansehen"
+                          >
+                            <Clock3 size={15} />
+                          </button>
+                          <button
                             onClick={() => setEditingUser(user)}
                             className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                             title="Bearbeiten"
@@ -183,6 +210,10 @@ export default function UsersPage() {
         <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} />
       )}
 
+      {viewingTimeUser && (
+        <UserTimeSummaryModal user={viewingTimeUser} onClose={() => setViewingTimeUser(null)} />
+      )}
+
       {/* Module Permissions Modal */}
       {editingModules && (
         <ModulePermissionsModal
@@ -207,6 +238,7 @@ function EditUserModal({ user, onClose }: { user: UserRow; onClose: () => void }
     supervisorId: user.supervisorId || '',
     vacationDaysPerYear: user.vacationDaysPerYear ?? 25,
     weeklyTargetHours: Number(user.weeklyTargetHours) || 40,
+    timeEditsRequireApproval: user.timeEditsRequireApproval ?? false,
     isActive: user.isActive,
   });
   const [error, setError] = useState('');
@@ -250,6 +282,7 @@ function EditUserModal({ user, onClose }: { user: UserRow; onClose: () => void }
       supervisorId: form.supervisorId || null,
       vacationDaysPerYear: Number(form.vacationDaysPerYear),
       weeklyTargetHours: Number(form.weeklyTargetHours),
+      timeEditsRequireApproval: form.timeEditsRequireApproval,
       isActive: form.isActive,
     });
   };
@@ -373,6 +406,26 @@ function EditUserModal({ user, onClose }: { user: UserRow; onClose: () => void }
             </div>
           </div>
 
+          <div className="flex items-center gap-3 py-2">
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, timeEditsRequireApproval: !form.timeEditsRequireApproval })}
+              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
+                form.timeEditsRequireApproval ? 'bg-amber-500' : 'bg-neutral-300 dark:bg-neutral-700'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  form.timeEditsRequireApproval ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+            <div>
+              <div className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Zeitänderungen freigeben lassen</div>
+              <div className="text-xs text-neutral-400">Eigene Änderungen an Zeiteinträgen werden zuerst beim Vorgesetzten zur Genehmigung eingereicht</div>
+            </div>
+          </div>
+
           {showDeleteConfirm ? (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg space-y-3">
               <div className="flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
@@ -421,6 +474,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
     role: 'user',
     department: '',
     position: '',
+    timeEditsRequireApproval: false,
   });
   const [error, setError] = useState('');
 
@@ -504,6 +558,26 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
             <div>
               <label className="label">Position</label>
               <input className="input" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 py-2">
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, timeEditsRequireApproval: !form.timeEditsRequireApproval })}
+              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
+                form.timeEditsRequireApproval ? 'bg-amber-500' : 'bg-neutral-300 dark:bg-neutral-700'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  form.timeEditsRequireApproval ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+            <div>
+              <div className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Zeitänderungen freigeben lassen</div>
+              <div className="text-xs text-neutral-400">Änderungen an Zeiteinträgen gehen zuerst an den Vorgesetzten</div>
             </div>
           </div>
 
@@ -599,4 +673,97 @@ function ModulePermissionsModal({ userId, onClose }: { userId: string; onClose: 
       </div>
     </div>
   );
+}
+
+function UserTimeSummaryModal({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1) + weekOffset * 7;
+  const monday = new Date(now.setDate(diff));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const start = monday.toISOString().split('T')[0];
+  const end = sunday.toISOString().split('T')[0];
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['user-time-summary', user.id, start, end],
+    queryFn: () => apiGet<UserTimeSummary>(`/time-tracking/summary?userId=${user.id}&start=${start}&end=${end}`),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="card p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+              Zeiterfassung von {user.firstName} {user.lastName}
+            </h3>
+            <p className="text-sm text-neutral-500">{user.email}</p>
+          </div>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => setWeekOffset((value) => value - 1)} className="btn-ghost p-2"><ChevronLeft size={16} /></button>
+          <div className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+            {monday.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })} - {sunday.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </div>
+          <button onClick={() => setWeekOffset((value) => value + 1)} className="btn-ghost p-2"><ChevronRight size={16} /></button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="card p-4">
+            <div className="text-xs text-neutral-400">Netto</div>
+            <div className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{formatMinutes(data?.totalMinutes ?? 0)}</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-xs text-neutral-400">Pausen</div>
+            <div className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{data?.totalBreakMinutes ?? 0} min</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-xs text-neutral-400">Saldo Woche</div>
+            <div className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{(data?.balanceHours ?? 0).toFixed(1)}h</div>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-neutral-400">Laden...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-surface-secondary border-b border-border">
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Datum</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Kommen</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Gehen</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Pause</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Netto</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-light">
+                {data?.entries?.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200">{new Date(entry.clockIn).toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: '2-digit' })}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-500">{new Date(entry.clockIn).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-500">{entry.clockOut ? new Date(entry.clockOut).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' }) : 'Aktiv'}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-500">{entry.breakMinutes} min</td>
+                    <td className="px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200">{formatMinutes(entry.netMinutes ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatMinutes(minutes: number) {
+  const sign = minutes < 0 ? '-' : '';
+  const abs = Math.abs(minutes);
+  return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
 }

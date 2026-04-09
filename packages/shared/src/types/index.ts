@@ -15,6 +15,7 @@ export interface User {
   orgId: string;
   vacationDaysPerYear: number;
   weeklyTargetHours: number;
+  timeEditsRequireApproval: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

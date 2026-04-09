@@ -14,6 +14,7 @@ export const createUserSchema = z.object({
   supervisorId: z.string().uuid().nullable().optional(),
   vacationDaysPerYear: z.number().int().min(0).max(365).default(25),
   weeklyTargetHours: z.number().min(0).max(168).default(40),
+  timeEditsRequireApproval: z.boolean().optional(),
 });
 
 export const updateUserSchema = createUserSchema
