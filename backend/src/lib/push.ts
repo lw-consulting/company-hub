@@ -7,6 +7,15 @@ import { notificationDevices } from '../db/schema/notification-devices.js';
 
 let vapidConfigured = false;
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+    }),
+  ]);
+}
+
 function ensureWebPushConfigured() {
   if (vapidConfigured) return true;
   if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return false;
@@ -46,14 +55,18 @@ export async function sendPushNotifications(userId: string, payload: PushPayload
         if (device.platform === 'web') {
           if (!ensureWebPushConfigured()) return;
 
-          await webpush.sendNotification(
-            device.subscription as webpush.PushSubscription,
-            JSON.stringify({
-              title: payload.title,
-              body: payload.body,
-              url: payload.url,
-              category: payload.category,
-            }),
+          await withTimeout(
+            webpush.sendNotification(
+              device.subscription as webpush.PushSubscription,
+              JSON.stringify({
+                title: payload.title,
+                body: payload.body,
+                url: payload.url,
+                category: payload.category,
+              }),
+            ),
+            5000,
+            'web push',
           );
         }
 
@@ -96,6 +109,7 @@ async function sendExpoPush(token: string, payload: PushPayloadInput) {
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers,
+    signal: AbortSignal.timeout(5000),
     body: JSON.stringify({
       to: token,
       sound: 'default',

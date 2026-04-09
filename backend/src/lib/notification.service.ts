@@ -28,6 +28,13 @@ interface CreateNotificationInput {
   sendPushNotification?: boolean;
 }
 
+function logNotificationDeliveryError(channel: 'email' | 'push', error: unknown, meta: Record<string, unknown>) {
+  console.error(`[Notification] ${channel} delivery failed`, {
+    ...meta,
+    error: error instanceof Error ? error.message : String(error),
+  });
+}
+
 const MODULE_CATEGORY_MAP: Record<string, NotificationCategory> = {
   chat: 'chat',
   community: 'community',
@@ -77,32 +84,51 @@ export async function createNotification(input: CreateNotificationInput) {
       .returning();
   }
 
-  if (
+  const shouldSendEmail =
     input.sendEmailNotification !== false &&
-    isChannelEnabled(user.notificationPreferences, category, 'email')
-  ) {
-    await sendEmail({
-      to: user.email,
-      subject: input.title,
-      html: `
-        <div style="font-family: Inter, sans-serif; max-width: 500px;">
-          <h2 style="color: #1e293b;">${input.title}</h2>
-          <p style="color: #64748b;">${input.body}</p>
-          ${input.link ? `<p><a href="${input.link}" style="color: #6366f1;">Im Portal ansehen</a></p>` : ''}
-        </div>
-      `,
-    });
-  }
-
-  if (
+    isChannelEnabled(user.notificationPreferences, category, 'email');
+  const shouldSendPush =
     input.sendPushNotification !== false &&
-    isChannelEnabled(user.notificationPreferences, category, 'push')
-  ) {
-    await sendPushNotifications(input.userId, {
-      title: input.title,
-      body: input.body,
-      url: input.link,
-      category,
+    isChannelEnabled(user.notificationPreferences, category, 'push');
+
+  if (shouldSendEmail || shouldSendPush) {
+    const emailHtml = `
+      <div style="font-family: Inter, sans-serif; max-width: 500px;">
+        <h2 style="color: #1e293b;">${input.title}</h2>
+        <p style="color: #64748b;">${input.body}</p>
+        ${input.link ? `<p><a href="${input.link}" style="color: #6366f1;">Im Portal ansehen</a></p>` : ''}
+      </div>
+    `;
+
+    queueMicrotask(() => {
+      if (shouldSendEmail) {
+        void sendEmail({
+          to: user.email,
+          subject: input.title,
+          html: emailHtml,
+        }).catch((error) => {
+          logNotificationDeliveryError('email', error, {
+            userId: input.userId,
+            type: input.type,
+            category,
+          });
+        });
+      }
+
+      if (shouldSendPush) {
+        void sendPushNotifications(input.userId, {
+          title: input.title,
+          body: input.body,
+          url: input.link,
+          category,
+        }).catch((error) => {
+          logNotificationDeliveryError('push', error, {
+            userId: input.userId,
+            type: input.type,
+            category,
+          });
+        });
+      }
     });
   }
 
